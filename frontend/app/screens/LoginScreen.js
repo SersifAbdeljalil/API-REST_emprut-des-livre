@@ -76,6 +76,7 @@ const LoginScreen = () => {
 
         // Rediriger vers HomeScreen après une connexion réussie
         navigation.replace("Home");
+        console.log("Navigation vers Home"); // Debug log
     } catch (error) {
         console.error("Erreur de connexion:", error);
         

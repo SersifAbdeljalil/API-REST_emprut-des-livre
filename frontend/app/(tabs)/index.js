@@ -1,4 +1,3 @@
-// Index.js
 import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { createStackNavigator } from "@react-navigation/stack";
@@ -6,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
-import HomeScreen from "../screens/HomeScreen";
+import HomeScreen from "./HomeScreen";
 
 const Stack = createStackNavigator();
 
@@ -17,6 +16,7 @@ export default function Index() {
     useEffect(() => {
         const checkToken = async () => {
             const token = await AsyncStorage.getItem("token");
+            console.log("Token récupéré:", token); // Debug log
             setUserToken(token);
             setIsLoading(false);
         };
@@ -33,14 +33,11 @@ export default function Index() {
 
     return (
         <Stack.Navigator>
-            {userToken ? (
-                <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-            ) : (
-                <>
-                    <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
-                </>
-            )}
+     <>
+                <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }}/>
+                <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+                </>       
         </Stack.Navigator>
     );
 }

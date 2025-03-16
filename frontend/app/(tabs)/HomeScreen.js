@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const HomeScreen = ({ navigation }) => {
     const handleLogout = async () => {
         await AsyncStorage.removeItem("token"); // Supprimer le token
-        navigation.replace("Login"); // Rediriger vers l'écran de connexion
+        navigation.navigate("Login"); // Rediriger vers l'écran de connexion
     };
 
     return (
