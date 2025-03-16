@@ -65,28 +65,29 @@ const LoginScreen = () => {
 
     setIsLoading(true);
     try {
-      const res = await axios.post("http://192.168.1.131:5000/api/auth/login", {
-        email,
-        password
-      });
-      
-      await AsyncStorage.setItem("token", res.data.token);
-      setIsLoading(false);
+        const res = await axios.post("http://192.168.1.131:5000/api/auth/login", {
+            email,
+            password
+        });
+        
+        await AsyncStorage.setItem("token", res.data.token);
+        console.log("Token stored:", res.data.token); // Debug log
+        setIsLoading(false);
 
-      // Rediriger vers HomeScreen après une connexion réussie
-      navigation.replace("home");
+        // Rediriger vers HomeScreen après une connexion réussie
+        navigation.replace("Home");
     } catch (error) {
-      console.error("Erreur de connexion:", error);
-      
-      let errorMessage = "Email ou mot de passe incorrect";
-      if (error.response && error.response.data?.message) {
-        errorMessage = error.response.data.message;
-      }
-      
-      Alert.alert("Échec de la connexion", errorMessage);
-      setIsLoading(false);
+        console.error("Erreur de connexion:", error);
+        
+        let errorMessage = "Email ou mot de passe incorrect";
+        if (error.response && error.response.data?.message) {
+            errorMessage = error.response.data.message;
+        }
+        
+        Alert.alert("Échec de la connexion", errorMessage);
+        setIsLoading(false);
     }
-  };
+};
 
   return (
     <SafeAreaView style={styles.container}>
