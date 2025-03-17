@@ -65,7 +65,7 @@ const LoginScreen = () => {
 
     setIsLoading(true);
     try {
-        const res = await axios.post("http://192.168.1.131:5000/api/auth/login", {
+        const res = await axios.post("http://192.168.11.102:5000/api/auth/login", {
             email,
             password
         });

@@ -1,11 +1,16 @@
+// Index.js
 import React, { useState, useEffect } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import HomeScreen from "../screens/HomeScreen";
+import AddBookScreen from "../screens/AddBookScreen";
+import EditBookScreen from "../screens/EditBookScreen";
+import BookDetailsScreen from "../screens/BookDetailsScreen";
+import LoadingScreen from "../screens/LoadingScreen"; // Importez LoadingScreen
 
 const Stack = createStackNavigator();
 
@@ -16,7 +21,6 @@ export default function Index() {
     useEffect(() => {
         const checkToken = async () => {
             const token = await AsyncStorage.getItem("token");
-            console.log("Token récupéré:", token); // Debug log
             setUserToken(token);
             setIsLoading(false);
         };
@@ -24,18 +28,30 @@ export default function Index() {
     }, []);
 
     if (isLoading) {
-        return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                <ActivityIndicator size="large" />
-            </View>
-        );
+        return <LoadingScreen />; // Utilisez LoadingScreen ici
     }
 
     return (
-        <Stack.Navigator initialRouteName={userToken ? "Home" : "Login"}>
-            <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
-        </Stack.Navigator>
+        
+            <Stack.Navigator
+                initialRouteName={userToken ? "Home" : "Login"}
+                screenOptions={{
+                    headerStyle: {
+                        backgroundColor: '#2196F3',
+                    },
+                    headerTintColor: '#fff',
+                }}>
+                <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="AddBook" component={AddBookScreen} options={{ title: "Ajouter un livre" }} />
+                <Stack.Screen name="EditBook" component={EditBookScreen} options={{ title: "Modifier le livre" }} />
+                <Stack.Screen
+                    name="BookDetails"
+                    component={BookDetailsScreen}
+                    options={({ route }) => ({ title: route.params?.title || "Détails du livre" })}
+                />
+            </Stack.Navigator>
+       
     );
 }
