@@ -28,13 +28,13 @@ export default function Index() {
     }, []);
 
     if (isLoading) {
-        return <LoadingScreen />; // Utilisez LoadingScreen ici
+        return <LoadingScreen />;
     }
 
     return (
         
             <Stack.Navigator
-                initialRouteName={userToken ? "Home" : "Login"}
+                initialRouteName={userToken ? "Login" : "Login"}
                 screenOptions={{
                     headerStyle: {
                         backgroundColor: '#2196F3',
@@ -44,12 +44,12 @@ export default function Index() {
                 <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="AddBook" component={AddBookScreen} options={{ title: "Ajouter un livre" }} />
-                <Stack.Screen name="EditBook" component={EditBookScreen} options={{ title: "Modifier le livre" }} />
+                <Stack.Screen name="AddBook" component={AddBookScreen} options={{ headerShown: false }}/>
+                <Stack.Screen name="EditBook" component={EditBookScreen} options={{ headerShown: false }}  />
                 <Stack.Screen
                     name="BookDetails"
                     component={BookDetailsScreen}
-                    options={({ route }) => ({ title: route.params?.title || "Détails du livre" })}
+                    options={{headerShown: false}}
                 />
             </Stack.Navigator>
        

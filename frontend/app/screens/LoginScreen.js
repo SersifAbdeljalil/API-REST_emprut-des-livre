@@ -18,7 +18,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from "@react-navigation/native"; // Import useNavigation
+import { useNavigation } from "@react-navigation/native";
 
 const { width } = Dimensions.get('window');
 
@@ -30,7 +30,7 @@ const LoginScreen = () => {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  const navigation = useNavigation(); // Utiliser useNavigation pour accéder à l'objet navigation
+  const navigation = useNavigation();
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -71,12 +71,11 @@ const LoginScreen = () => {
         });
         
         await AsyncStorage.setItem("token", res.data.token);
-        console.log("Token stored:", res.data.token); // Debug log
+        console.log("Token stored:", res.data.token);
         setIsLoading(false);
 
-        // Rediriger vers HomeScreen après une connexion réussie
         navigation.replace("Home");
-        console.log("Navigation vers Home"); // Debug log
+        console.log("Navigation vers Home");
     } catch (error) {
         console.error("Erreur de connexion:", error);
         
@@ -92,7 +91,7 @@ const LoginScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FA" />
+      <StatusBar barStyle="light-content" backgroundColor="#f6f7fb" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoid}
@@ -100,7 +99,7 @@ const LoginScreen = () => {
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <View style={styles.header}>
             <LinearGradient
-              colors={['#2E3B55', '#1E2B45']}
+              colors={['#3a416f', '#141727']}
               style={styles.logoContainer}
             >
               <FontAwesome5 name="book-reader" size={32} color="#FFFFFF" />
@@ -115,11 +114,11 @@ const LoginScreen = () => {
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Adresse email</Text>
               <View style={[styles.inputContainer, emailError ? styles.inputError : null]}>
-                <MaterialIcons name="email" size={20} color="#3B4B64" style={styles.inputIcon} />
+                <MaterialIcons name="email" size={20} color="#666" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Entrez votre email"
-                  placeholderTextColor="#9E9E9E"
+                  placeholderTextColor="#999"
                   value={email}
                   onChangeText={(text) => {
                     setEmail(text);
@@ -135,11 +134,11 @@ const LoginScreen = () => {
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Mot de passe</Text>
               <View style={[styles.inputContainer, passwordError ? styles.inputError : null]}>
-                <MaterialIcons name="lock" size={20} color="#3B4B64" style={styles.inputIcon} />
+                <MaterialIcons name="lock" size={20} color="#666" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Entrez votre mot de passe"
-                  placeholderTextColor="#9E9E9E"
+                  placeholderTextColor="#999"
                   value={password}
                   onChangeText={(text) => {
                     setPassword(text);
@@ -155,7 +154,7 @@ const LoginScreen = () => {
                   <Ionicons
                     name={showPassword ? "eye-off" : "eye"}
                     size={20}
-                    color="#9E9E9E"
+                    color="#666"
                   />
                 </TouchableOpacity>
               </View>
@@ -172,7 +171,7 @@ const LoginScreen = () => {
               style={styles.buttonContainer}
             >
               <LinearGradient
-                colors={['#3B4B64', '#2E3B55']}
+                colors={['#2B6CB0', '#1A365D']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.loginButton}
@@ -195,13 +194,13 @@ const LoginScreen = () => {
             </View>
 
             <View style={styles.socialContainer}>
-              <TouchableOpacity style={[styles.socialButton, { backgroundColor: '#4267B2' }]}>
+              <TouchableOpacity style={[styles.socialButton, { backgroundColor: '#4F6CE1' }]}>
                 <FontAwesome5 name="facebook-f" size={16} color="#FFFFFF" />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.socialButton, { backgroundColor: '#DB4437' }]}>
+              <TouchableOpacity style={[styles.socialButton, { backgroundColor: '#E53E3E' }]}>
                 <FontAwesome5 name="google" size={16} color="#FFFFFF" />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.socialButton, { backgroundColor: '#000000' }]}>
+              <TouchableOpacity style={[styles.socialButton, { backgroundColor: '#141727' }]}>
                 <FontAwesome5 name="apple" size={16} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -224,7 +223,7 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F7FA",
+    backgroundColor: "#f6f7fb",
   },
   keyboardAvoid: {
     flex: 1,
@@ -256,32 +255,32 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#2E3B55",
+    color: "#141727",
     letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: 16,
-    color: "#6B7C93",
+    color: "#4A5568",
     marginTop: 8,
   },
   formContainer: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: 15,
     padding: 24,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 3,
+      height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     elevation: 5,
     marginBottom: 24,
   },
   formTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#2E3B55",
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#2D3748",
     marginBottom: 24,
     textAlign: "center",
   },
@@ -290,37 +289,37 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "#5E6C84",
-    marginBottom: 6,
+    fontWeight: "600",
+    color: "#4A5568",
+    marginBottom: 8,
     paddingLeft: 2,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#E4E7EB",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
     borderRadius: 12,
-    backgroundColor: "#F9FAFC",
+    backgroundColor: "#F7FAFC",
     height: 50,
   },
   inputError: {
-    borderColor: "#FF5252",
+    borderColor: "#E53E3E",
   },
   inputIcon: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
   },
   input: {
     flex: 1,
-    paddingVertical: 10,
-    color: "#333745",
-    fontSize: 16,
+    paddingVertical: 12,
+    color: "#2D3748",
+    fontSize: 15,
   },
   passwordToggle: {
     paddingHorizontal: 16,
   },
   errorText: {
-    color: "#FF5252",
+    color: "#E53E3E",
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4,
@@ -330,7 +329,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   forgotPasswordText: {
-    color: '#3B4B64',
+    color: '#4F6CE1',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -338,17 +337,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     marginTop: 8,
-    shadowColor: "#3B4B64",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 6,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 5,
   },
   loginButton: {
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -358,13 +357,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonIcon: {
-    marginRight: 12,
+    marginRight: 8,
   },
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    fontSize: 18,
+    fontWeight: "bold",
   },
   divider: {
     flexDirection: 'row',
@@ -374,11 +372,11 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E4E7EB',
+    backgroundColor: '#E2E8F0',
   },
   dividerText: {
     paddingHorizontal: 16,
-    color: '#6B7C93',
+    color: '#4A5568',
     fontWeight: '500',
   },
   socialContainer: {
@@ -398,7 +396,7 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
   },
@@ -408,11 +406,11 @@ const styles = StyleSheet.create({
   },
   registerText: {
     fontSize: 16,
-    color: "#6B7C93",
+    color: "#4A5568",
   },
   registerTextBold: {
     fontWeight: "bold",
-    color: "#3B4B64",
+    color: "#3a416f",
   },
 });
 

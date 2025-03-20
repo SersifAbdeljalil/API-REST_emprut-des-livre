@@ -7,50 +7,114 @@ import {
     StyleSheet,
     ScrollView,
     Alert,
-    Image
+    Image,
+    ActivityIndicator,
+    StatusBar
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const AddBookScreen = ({ navigation }) => {
     const [title, setTitle] = useState('');
     const [author, setAuthor] = useState('');
     const [description, setDescription] = useState('');
     const [image, setImage] = useState(null);
+    const [pdf, setPdf] = useState(null);
+    const [loading, setLoading] = useState(false);
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
-            aspect: [4, 3],
+            aspect: [3, 4],
             quality: 1,
         });
 
-        if (!result.cancelled) {
-            setImage(result.uri);
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
         }
     };
 
+    const pickPdf = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: 'application/pdf',
+                copyToCacheDirectory: true
+            });
+    
+            if (result && result.assets && result.assets.length > 0) {
+                const pdfAsset = result.assets[0];
+                if (pdfAsset.mimeType === 'application/pdf') {
+                    const decodedFileName = decodeURIComponent(pdfAsset.name);
+                    console.log("Nom du fichier décodé :", decodedFileName);
+                    
+                    setPdf(pdfAsset.uri);
+                    Alert.alert('Succès', `PDF sélectionné: ${decodedFileName}`);
+                } else {
+                    Alert.alert('Erreur', 'Veuillez sélectionner un fichier PDF valide');
+                }
+            } else {
+                Alert.alert('Erreur', 'Aucun fichier PDF sélectionné');
+            }
+        } catch (err) {
+            console.error('Erreur lors de la sélection du PDF:', err);
+        }
+    };
+    
     const handleSubmit = async () => {
         if (!title || !author || !description) {
             Alert.alert('Erreur', 'Veuillez remplir tous les champs requis');
             return;
         }
 
+        if (!image) {
+            Alert.alert('Erreur', 'Veuillez ajouter une image de couverture');
+            return;
+        }
+
+        if (!pdf) {
+            Alert.alert('Erreur', 'Veuillez ajouter un fichier PDF');
+            return;
+        }
+
+        setLoading(true);
+
         const formData = new FormData();
         formData.append('title', title);
         formData.append('author', author);
         formData.append('description', description);
+        
         if (image) {
+            const imageName = image.split('/').pop();
+            const imageType = 'image/' + (imageName.endsWith('png') ? 'png' : 'jpeg');
+            
             formData.append('image', {
                 uri: image,
-                name: 'photo.jpg',
-                type: 'image/jpeg',
+                name: imageName,
+                type: imageType,
+            });
+        }
+
+        if (pdf) {
+            const pdfName = pdf.split('/').pop();
+            
+            formData.append('pdf', {
+                uri: pdf,
+                name: pdfName,
+                type: 'application/pdf',
             });
         }
 
         try {
             const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                Alert.alert('Erreur', 'Vous devez être connecté pour ajouter un livre');
+                return;
+            }
+
             const response = await fetch('http://192.168.11.102:5000/api/books', {
                 method: 'POST',
                 headers: {
@@ -64,111 +128,352 @@ const AddBookScreen = ({ navigation }) => {
                 Alert.alert('Succès', 'Livre ajouté avec succès');
                 navigation.goBack();
             } else {
-                Alert.alert('Erreur', 'Impossible d\'ajouter le livre');
+                const errorData = await response.json();
+                Alert.alert('Erreur', errorData.message || 'Impossible d\'ajouter le livre');
             }
         } catch (error) {
-            Alert.alert('Erreur', 'Une erreur est survenue');
+            console.error('Erreur:', error);
+            Alert.alert('Erreur', 'Une erreur est survenue lors de l\'ajout du livre');
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.form}>
-                <Text style={styles.label}>Titre</Text>
-                <TextInput
-                    style={styles.input}
-                    value={title}
-                    onChangeText={setTitle}
-                    placeholder="Titre du livre"
-                />
-
-                <Text style={styles.label}>Auteur</Text>
-                <TextInput
-                    style={styles.input}
-                    value={author}
-                    onChangeText={setAuthor}
-                    placeholder="Nom de l'auteur"
-                />
-
-                <Text style={styles.label}>Description</Text>
-                <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={description}
-                    onChangeText={setDescription}
-                    placeholder="Description du livre"
-                    multiline
-                    numberOfLines={4}
-                />
-
-                <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                    <Text style={styles.imagePickerText}>Choisir une image</Text>
-                </TouchableOpacity>
-
-                {image && <Image source={{ uri: image }} style={styles.imagePreview} />}
-
-                <TouchableOpacity
-                    style={styles.submitButton}
-                    onPress={handleSubmit}
+        <View style={styles.mainContainer}>
+            <StatusBar barStyle="light-content" />
+            
+            {/* En-tête avec titre */}
+            <LinearGradient
+                colors={['#3a416f', '#141727']}
+                style={styles.headerGradient}
+            >
+                <TouchableOpacity 
+                    style={styles.backButton} 
+                    onPress={() => navigation.goBack()}
                 >
-                    <Text style={styles.submitButtonText}>Ajouter le livre</Text>
+                    <Ionicons name="arrow-back" size={24} color="white" />
                 </TouchableOpacity>
-            </View>
-        </ScrollView>
+                <Text style={styles.headerTitle}>Ajouter un livre</Text>
+            </LinearGradient>
+            
+            <ScrollView 
+                style={styles.container} 
+                contentContainerStyle={styles.contentContainer}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.card}>
+                    <View style={styles.form}>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Titre</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="book-outline" size={20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={title}
+                                    onChangeText={setTitle}
+                                    placeholder="Titre du livre"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Auteur</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={author}
+                                    onChangeText={setAuthor}
+                                    placeholder="Nom de l'auteur"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Description</Text>
+                            <View style={[styles.inputContainer, styles.textAreaContainer]}>
+                                <TextInput
+                                    style={[styles.input, styles.textArea]}
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    placeholder="Description du livre"
+                                    placeholderTextColor="#999"
+                                    multiline
+                                    numberOfLines={4}
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.divider} />
+
+                        <View style={styles.uploadSection}>
+                            <Text style={styles.sectionTitle}>Média</Text>
+                            
+                            <View style={styles.uploadGroup}>
+                                <Text style={styles.label}>Image de couverture</Text>
+                                {!image ? (
+                                    <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
+                                        <LinearGradient
+                                            colors={['#4F6CE1', '#7D55F3']}
+                                            style={styles.uploadGradient}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                        >
+                                            <Ionicons name="image-outline" size={22} color="white" />
+                                            <Text style={styles.uploadButtonText}>Sélectionner une image</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <View style={styles.previewContainer}>
+                                        <Image source={{ uri: image }} style={styles.imagePreview} />
+                                        <TouchableOpacity 
+                                            style={styles.removeButton}
+                                            onPress={() => setImage(null)}
+                                        >
+                                            <Ionicons name="close-circle" size={26} color="#E53E3E" />
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </View>
+
+                            <View style={styles.uploadGroup}>
+                                <Text style={styles.label}>Fichier PDF <Text style={styles.required}>(Obligatoire)</Text></Text>
+                                {!pdf ? (
+                                    <TouchableOpacity style={styles.uploadButton} onPress={pickPdf}>
+                                        <LinearGradient
+                                            colors={['#E53E3E', '#C53030']}
+                                            style={styles.uploadGradient}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                        >
+                                            <Ionicons name="document-outline" size={22} color="white" />
+                                            <Text style={styles.uploadButtonText}>Sélectionner un PDF</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <View style={styles.pdfPreview}>
+                                        <View style={styles.pdfIconContainer}>
+                                            <Ionicons name="document-text" size={24} color="#E53E3E" />
+                                        </View>
+                                        <Text style={styles.pdfName} numberOfLines={1}>
+                                            {pdf.split('/').pop()}
+                                        </Text>
+                                        <TouchableOpacity 
+                                            style={styles.removePdfButton}
+                                            onPress={() => setPdf(null)}
+                                        >
+                                            <Ionicons name="close-circle" size={22} color="#E53E3E" />
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.submitButton, loading && styles.disabledButton]}
+                            onPress={handleSubmit}
+                            disabled={loading}
+                            activeOpacity={0.8}
+                        >
+                            <LinearGradient
+                                colors={loading ? ['#90CDF4', '#BEE3F8'] : ['#2B6CB0', '#1A365D']}
+                                style={styles.submitGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator size="small" color="white" />
+                                ) : (
+                                    <>
+                                        <Ionicons name="add-circle-outline" size={20} color="white" style={styles.submitIcon} />
+                                        <Text style={styles.submitButtonText}>Ajouter le livre</Text>
+                                    </>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </ScrollView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    mainContainer: {
+        flex: 1,
+        backgroundColor: '#f6f7fb',
+    },
+    headerGradient: {
+        paddingTop: 50,
+        paddingBottom: 15,
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    backButton: {
+        marginRight: 15,
+    },
+    headerTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: 'white',
+    },
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
     },
-    form: {
+    contentContainer: {
         padding: 20,
     },
+    card: {
+        backgroundColor: 'white',
+        borderRadius: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 5,
+        padding: 20,
+        marginBottom: 20,
+    },
+    form: {
+        gap: 16,
+    },
+    inputGroup: {
+        marginBottom: 12,
+    },
     label: {
-        fontSize: 16,
-        marginBottom: 5,
-        color: '#333',
+        fontSize: 14,
+        marginBottom: 8,
+        color: '#4A5568',
+        fontWeight: '600',
+    },
+    required: {
+        color: '#E53E3E',
+        fontWeight: '500',
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F7FAFC',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    inputIcon: {
+        padding: 10,
     },
     input: {
-        backgroundColor: 'white',
-        padding: 10,
-        borderRadius: 5,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: '#ddd',
+        flex: 1,
+        padding: 12,
+        fontSize: 15,
+        color: '#2D3748',
+    },
+    textAreaContainer: {
+        alignItems: 'flex-start',
     },
     textArea: {
-        height: 100,
+        height: 120,
         textAlignVertical: 'top',
     },
-    imagePicker: {
-        backgroundColor: '#2196F3',
-        padding: 10,
-        borderRadius: 5,
-        alignItems: 'center',
-        marginBottom: 15,
+    divider: {
+        height: 1,
+        backgroundColor: '#E2E8F0',
+        marginVertical: 10,
     },
-    imagePickerText: {
+    uploadSection: {
+        gap: 16,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#2D3748',
+        marginBottom: 10,
+    },
+    uploadGroup: {
+        marginBottom: 16,
+    },
+    uploadButton: {
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    uploadGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 14,
+    },
+    uploadButtonText: {
         color: 'white',
         fontSize: 16,
+        marginLeft: 8,
+        fontWeight: '600',
+    },
+    previewContainer: {
+        position: 'relative',
+        marginTop: 8,
+        borderRadius: 12,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
     },
     imagePreview: {
         width: '100%',
         height: 200,
-        borderRadius: 5,
-        marginBottom: 15,
+        borderRadius: 12,
+    },
+    removeButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        borderRadius: 15,
+        padding: 2,
+    },
+    pdfPreview: {
+        flexDirection: 'row',
+        backgroundColor: '#FFF5F5',
+        padding: 12,
+        borderRadius: 12,
+        marginTop: 8,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#FED7D7',
+    },
+    pdfIconContainer: {
+        backgroundColor: 'rgba(229, 62, 62, 0.1)',
+        padding: 8,
+        borderRadius: 8,
+    },
+    pdfName: {
+        flex: 1,
+        marginLeft: 12,
+        color: '#4A5568',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    removePdfButton: {
+        padding: 4,
     },
     submitButton: {
-        backgroundColor: '#2196F3',
-        padding: 15,
-        borderRadius: 5,
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginTop: 10,
+    },
+    submitGradient: {
+        flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 20,
+        justifyContent: 'center',
+        padding: 16,
+    },
+    submitIcon: {
+        marginRight: 8,
     },
     submitButtonText: {
         color: 'white',
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: 'bold',
     },
 });

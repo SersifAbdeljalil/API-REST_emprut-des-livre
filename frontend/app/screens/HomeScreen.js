@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const HomeScreen = ({ navigation }) => {
     const [books, setBooks] = useState([]);
@@ -22,14 +23,25 @@ const HomeScreen = ({ navigation }) => {
     const fetchBooks = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                navigation.replace('Login');
+                return;
+            }
+            
             const response = await fetch('http://192.168.11.102:5000/api/books', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
+            
+            if (!response.ok) {
+                throw new Error('Erreur de serveur');
+            }
+            
             const data = await response.json();
             setBooks(data);
         } catch (error) {
+            console.error('Erreur:', error);
             Alert.alert('Erreur', 'Impossible de charger les livres');
         } finally {
             setLoading(false);
@@ -48,243 +60,223 @@ const HomeScreen = ({ navigation }) => {
     }, [navigation]);
 
     const handleLogout = async () => {
-        try {
-            await AsyncStorage.removeItem('token');
-            navigation.replace('Login');
-        } catch (error) {
-            Alert.alert('Erreur', 'Problème lors de la déconnexion');
-        }
-    };
-
-    const handleDeleteBook = async (bookId) => {
         Alert.alert(
-            'Confirmation',
-            'Voulez-vous vraiment supprimer ce livre ?',
+            'Déconnexion',
+            'Êtes-vous sûr de vouloir vous déconnecter ?',
             [
-                { text: 'Annuler', style: 'cancel' },
                 {
-                    text: 'Supprimer',
-                    style: 'destructive',
+                    text: 'Annuler',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Déconnecter',
                     onPress: async () => {
                         try {
-                            const token = await AsyncStorage.getItem('token');
-                            const response = await fetch(`http://192.168.11.102:5000/api/books/${bookId}`, {
-                                method: 'DELETE',
-                                headers: {
-                                    'Authorization': `Bearer ${token}`
-                                }
-                            });
-                            
-                            if (response.ok) {
-                                fetchBooks();
-                                Alert.alert('Succès', 'Livre supprimé avec succès');
-                            } else {
-                                Alert.alert('Erreur', 'Impossible de supprimer le livre');
-                            }
+                            await AsyncStorage.removeItem('token');
+                            navigation.replace('Login');
                         } catch (error) {
-                            Alert.alert('Erreur', 'Une erreur est survenue');
+                            Alert.alert('Erreur', 'Problème lors de la déconnexion');
                         }
-                    }
-                }
-            ]
+                    },
+                },
+            ],
+            { cancelable: true }
         );
     };
 
     const renderBookItem = ({ item }) => (
-        <View style={styles.bookCard}>
-          <Image
-            source={{ uri: item.imageUrl ? `http://192.168.11.102:5000/${item.imageUrl}` : 'https://via.placeholder.com/150' }}
-            style={styles.bookImage}
-            resizeMode="cover"
-          />
+        <TouchableOpacity 
+            style={styles.bookCard}
+            onPress={() => navigation.navigate('BookDetails', { bookId: item.id })}
+            activeOpacity={0.7}
+        >
+            <View style={styles.imageContainer}>
+                <Image
+                    source={{ uri: item.image_url ? `http://192.168.11.102:5000/${item.image_url}` : 'https://via.placeholder.com/150' }}
+                    style={styles.bookImage}
+                    resizeMode="cover"
+                />
+                {/* Badge pour indiquer un nouveau livre (optionnel) */}
+                {item.createdAt && new Date(item.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) && (
+                    <View style={styles.newBadge}>
+                        <Text style={styles.newBadgeText}>Nouveau</Text>
+                    </View>
+                )}
+            </View>
             <View style={styles.bookInfo}>
                 <Text style={styles.bookTitle} numberOfLines={1}>{item.title}</Text>
                 <Text style={styles.bookAuthor} numberOfLines={1}>{item.author}</Text>
-                <Text style={styles.bookDescription} numberOfLines={2}>{item.description}</Text>
-                
-                <View style={styles.buttonContainer}>
-                    <TouchableOpacity 
-                        style={[styles.button, styles.editButton]}
-                        onPress={() => navigation.navigate('EditBook', { book: item })}
-                    >
-                        <Ionicons name="create-outline" size={20} color="white" />
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                        style={[styles.button, styles.deleteButton]}
-                        onPress={() => handleDeleteBook(item.id)}
-                    >
-                        <Ionicons name="trash-outline" size={20} color="white" />
-                    </TouchableOpacity>
-                </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     if (loading) {
         return (
             <View style={styles.centerContainer}>
-                <StatusBar backgroundColor="#1A365D" barStyle="light-content" />
-                <ActivityIndicator size="large" color="#1A365D" />
+                <StatusBar barStyle="light-content" />
+                <ActivityIndicator size="large" color="#4F6CE1" />
                 <Text style={styles.loadingText}>Chargement de votre bibliothèque...</Text>
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
-            <StatusBar backgroundColor="#1A365D" barStyle="light-content" />
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Bibliothèque</Text>
+        <View style={styles.mainContainer}>
+            <StatusBar barStyle="light-content" />
+            
+            {/* En-tête avec dégradé */}
+            <LinearGradient
+                colors={['#3a416f', '#141727']}
+                style={styles.headerGradient}
+            >
+                <Text style={styles.headerTitle}>Ma Bibliothèque</Text>
                 <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
                     <Ionicons name="log-out-outline" size={24} color="white" />
                 </TouchableOpacity>
+            </LinearGradient>
+
+            <View style={styles.container}>
+                <FlatList
+                    data={books}
+                    renderItem={renderBookItem}
+                    keyExtractor={item => item.id.toString()}
+                    contentContainerStyle={styles.bookList}
+                    numColumns={2}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={() => {
+                                setRefreshing(true);
+                                fetchBooks();
+                            }}
+                            colors={["#4F6CE1"]}
+                            tintColor="#4F6CE1"
+                        />
+                    }
+                    ListEmptyComponent={() => (
+                        <View style={styles.emptyContainer}>
+                            <View style={styles.emptyIconContainer}>
+                                <Ionicons name="book-outline" size={60} color="#A0AEC0" />
+                            </View>
+                            <Text style={styles.emptyTitle}>Aucun livre trouvé</Text>
+                            <Text style={styles.emptyText}>
+                                Votre bibliothèque est vide. Ajoutez des livres en cliquant sur le bouton ci-dessous.
+                            </Text>
+                        </View>
+                    )}
+                    showsVerticalScrollIndicator={false}
+                />
             </View>
 
-            <FlatList
-                data={books}
-                renderItem={renderBookItem}
-                keyExtractor={item => item.id.toString()}
-                contentContainerStyle={styles.bookList}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={() => {
-                            setRefreshing(true);
-                            fetchBooks();
-                        }}
-                        colors={["#1A365D"]}
-                    />
-                }
-                ListEmptyComponent={() => (
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="book-outline" size={60} color="#A0AEC0" />
-                        <Text style={styles.emptyText}>Aucun livre disponible</Text>
-                    </View>
-                )}
-                showsVerticalScrollIndicator={false}
-            />
-
+            {/* Bouton d'ajout avec dégradé */}
             <TouchableOpacity 
                 style={styles.addButton}
                 onPress={() => navigation.navigate('AddBook')}
+                activeOpacity={0.8}
             >
-                <Ionicons name="add" size={30} color="white" />
+                <LinearGradient
+                    colors={['#4F6CE1', '#7D55F3']}
+                    style={styles.addButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                >
+                    <Ionicons name="add" size={30} color="white" />
+                </LinearGradient>
             </TouchableOpacity>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
+    mainContainer: {
+        flex: 1,
+        backgroundColor: '#f6f7fb',
+    },
+    headerGradient: {
+        paddingTop: 50,
+        paddingBottom: 15,
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    headerTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: 'white',
+    },
+    logoutButton: {
+        padding: 8,
+    },
     container: {
         flex: 1,
-        backgroundColor: '#F8F9FA',
     },
     centerContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#F8F9FA',
+        backgroundColor: '#f6f7fb',
     },
     loadingText: {
         marginTop: 12,
         fontSize: 16,
-        color: '#1A365D',
+        color: '#4F6CE1',
         fontWeight: '500',
     },
-    header: {
-        backgroundColor: '#1A365D',
-        paddingTop: 16,
-        paddingBottom: 16,
-        paddingHorizontal: 20,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        elevation: 6,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-    },
-    headerTitle: {
-        color: 'white',
-        fontSize: 22,
-        fontWeight: 'bold',
-        letterSpacing: 0.5,
-    },
-    logoutButton: {
-        padding: 8,
-    },
     bookList: {
-        padding: 16,
+        padding: 15,
         paddingBottom: 80,
     },
     bookCard: {
+        flex: 1,
         backgroundColor: 'white',
-        borderRadius: 12,
-        marginBottom: 16,
-        flexDirection: 'row',
+        borderRadius: 15,
+        margin: 8,
         overflow: 'hidden',
-        elevation: 4,
+        elevation: 3,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 3,
         borderColor: '#E2E8F0',
         borderWidth: 1,
+        height: 250,
+    },
+    imageContainer: {
+        position: 'relative',
+        height: 180,
     },
     bookImage: {
-        width: 110,
-        height: 160,
-        borderTopLeftRadius: 12,
-        borderBottomLeftRadius: 12,
+        width: '100%',
+        height: '100%',
+    },
+    newBadge: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: '#4F6CE1',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    newBadgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
     bookInfo: {
-        flex: 1,
-        padding: 16,
-        justifyContent: 'space-between',
+        padding: 12,
     },
     bookTitle: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '700',
-        marginBottom: 6,
-        color: '#1A365D',
+        marginBottom: 4,
+        color: '#2D3748',
     },
     bookAuthor: {
         fontSize: 14,
         color: '#4A5568',
-        marginBottom: 10,
         fontWeight: '500',
-    },
-    bookDescription: {
-        fontSize: 14,
-        color: '#718096',
-        marginBottom: 14,
-        lineHeight: 20,
-    },
-    buttonContainer: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-    },
-    button: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
-        elevation: 3,
-    },
-    editButton: {
-        backgroundColor: '#38A169',
-    },
-    deleteButton: {
-        backgroundColor: '#E53E3E',
     },
     addButton: {
         position: 'absolute',
@@ -293,29 +285,42 @@ const styles = StyleSheet.create({
         width: 60,
         height: 60,
         borderRadius: 30,
-        backgroundColor: '#1A365D',
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 8,
+        elevation: 5,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.3,
         shadowRadius: 5,
-        borderWidth: 3,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        overflow: 'hidden',
+    },
+    addButtonGradient: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     emptyContainer: {
         alignItems: 'center',
-        padding: 40,
-        height: 300,
+        padding: 30,
+        height: 400,
         justifyContent: 'center',
+    },
+    emptyIconContainer: {
+        backgroundColor: 'rgba(160, 174, 192, 0.1)',
+        padding: 20,
+        borderRadius: 50,
+        marginBottom: 20,
+    },
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#2D3748',
+        marginBottom: 10,
     },
     emptyText: {
         fontSize: 16,
         color: '#4A5568',
-        fontWeight: '500',
         textAlign: 'center',
-        marginTop: 16,
+        lineHeight: 24,
     },
 });
 
