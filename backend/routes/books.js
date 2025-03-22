@@ -187,7 +187,7 @@ router.delete("/:id", (req, res) => {
     });
 });
 
-// Route pour télécharger un PDF
+// Route pour télécharger un PDF (route existante)
 router.get("/:id/download-pdf", (req, res) => {
     db.query("SELECT pdf_url FROM books WHERE id = ?", [req.params.id], (err, results) => {
         if (err) {
@@ -200,6 +200,34 @@ router.get("/:id/download-pdf", (req, res) => {
         }
         
         const pdfPath = results[0].pdf_url;
+        res.download(pdfPath);
+    });
+});
+
+// Nouvelle route pour correspondre à l'URL utilisée par l'application mobile
+router.get("/:id/pdf", (req, res) => {
+    console.log(`Demande de PDF pour le livre ID: ${req.params.id}`);
+    
+    db.query("SELECT pdf_url FROM books WHERE id = ?", [req.params.id], (err, results) => {
+        if (err) {
+            console.error("Erreur lors de la récupération du PDF:", err);
+            return res.status(500).json({ message: "Erreur lors de la récupération du PDF" });
+        }
+        
+        if (results.length === 0 || !results[0].pdf_url) {
+            console.log(`PDF non trouvé pour le livre ID: ${req.params.id}`);
+            return res.status(404).json({ message: "PDF non trouvé" });
+        }
+        
+        const pdfPath = results[0].pdf_url;
+        console.log(`Envoi du PDF depuis: ${pdfPath}`);
+        
+        // Vérifier si le fichier existe
+        if (!fs.existsSync(pdfPath)) {
+            console.error(`Fichier PDF introuvable sur le serveur: ${pdfPath}`);
+            return res.status(404).json({ message: "Fichier PDF introuvable sur le serveur" });
+        }
+        
         res.download(pdfPath);
     });
 });

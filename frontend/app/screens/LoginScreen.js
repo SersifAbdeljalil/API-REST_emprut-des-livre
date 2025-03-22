@@ -70,15 +70,19 @@ const LoginScreen = () => {
             password
         });
         
+        // Stockez le token et le userId dans AsyncStorage
         await AsyncStorage.setItem("token", res.data.token);
+        await AsyncStorage.setItem("userId", res.data.user.id.toString()); // Stockez userId
         console.log("Token stored:", res.data.token);
+        console.log("User ID stored:", res.data.user.id); // Log pour vérifier userId
+
         setIsLoading(false);
 
         // Redirection en fonction du rôle
         if (res.data.user.role === 'admin') {
-            navigation.replace("Home"); 
+            navigation.replace("AdminTabs"); 
         } else {
-            navigation.replace("UserHome"); 
+            navigation.replace("UserTabs"); 
             console.log("User role:", res.data.user.role);
         }
     } catch (error) {

@@ -6,7 +6,6 @@ import {
     TouchableOpacity,
     StyleSheet,
     ScrollView,
-    Alert,
     Image,
     ActivityIndicator,
     StatusBar
@@ -15,6 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import CustomAlert from './CustomAlert'; // Assurez-vous que le chemin est correct selon votre structure de projet
 
 const EditBookScreen = ({ route, navigation }) => {
     const { bookId } = route.params;
@@ -28,6 +28,21 @@ const EditBookScreen = ({ route, navigation }) => {
     const [originalImage, setOriginalImage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    
+    // États pour CustomAlert
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertProps, setAlertProps] = useState({
+        title: '',
+        message: '',
+        type: 'success',
+        buttons: [{ text: 'OK', onPress: () => {} }]
+    });
+
+    // Fonction pour afficher l'alerte personnalisée
+    const showCustomAlert = (title, message, type = 'success', buttons = [{ text: 'OK', onPress: () => {} }]) => {
+        setAlertProps({ title, message, type, buttons });
+        setAlertVisible(true);
+    };
 
     useEffect(() => {
         const fetchBookDetails = async () => {
@@ -35,8 +50,9 @@ const EditBookScreen = ({ route, navigation }) => {
             try {
                 const token = await AsyncStorage.getItem('token');
                 if (!token) {
-                    Alert.alert('Erreur', 'Vous devez être connecté pour modifier un livre');
-                    navigation.goBack();
+                    showCustomAlert('Erreur', 'Vous devez être connecté pour modifier un livre', 'error', [
+                        { text: 'OK', onPress: () => navigation.goBack() }
+                    ]);
                     return;
                 }
 
@@ -61,8 +77,9 @@ const EditBookScreen = ({ route, navigation }) => {
                 setOriginalImage(data.imageUrl);
             } catch (error) {
                 console.error('Erreur lors du chargement des détails:', error);
-                Alert.alert('Erreur', 'Impossible de charger les détails du livre');
-                navigation.goBack();
+                showCustomAlert('Erreur', 'Impossible de charger les détails du livre', 'error', [
+                    { text: 'OK', onPress: () => navigation.goBack() }
+                ]);
             } finally {
                 setIsLoading(false);
             }
@@ -86,7 +103,7 @@ const EditBookScreen = ({ route, navigation }) => {
 
     const handleSubmit = async () => {
         if (!title || !author || !description || !publicationDate || !genre || !locationEra) {
-            Alert.alert('Erreur', 'Veuillez remplir tous les champs requis');
+            showCustomAlert('Erreur', 'Veuillez remplir tous les champs requis', 'warning');
             return;
         }
 
@@ -115,7 +132,8 @@ const EditBookScreen = ({ route, navigation }) => {
         try {
             const token = await AsyncStorage.getItem('token');
             if (!token) {
-                Alert.alert('Erreur', 'Vous devez être connecté pour modifier un livre');
+                showCustomAlert('Erreur', 'Vous devez être connecté pour modifier un livre', 'error');
+                setLoading(false);
                 return;
             }
 
@@ -129,15 +147,16 @@ const EditBookScreen = ({ route, navigation }) => {
             });
 
             if (response.ok) {
-                Alert.alert('Succès', 'Livre modifié avec succès');
-                navigation.goBack();
+                showCustomAlert('Succès', 'Livre modifié avec succès', 'success', [
+                    { text: 'OK', onPress: () => navigation.goBack() }
+                ]);
             } else {
                 const errorData = await response.json();
-                Alert.alert('Erreur', errorData.message || 'Impossible de modifier le livre');
+                showCustomAlert('Erreur', errorData.message || 'Impossible de modifier le livre', 'error');
             }
         } catch (error) {
             console.error('Erreur:', error);
-            Alert.alert('Erreur', 'Une erreur est survenue lors de la modification du livre');
+            showCustomAlert('Erreur', 'Une erreur est survenue lors de la modification du livre', 'error');
         } finally {
             setLoading(false);
         }
@@ -320,6 +339,16 @@ const EditBookScreen = ({ route, navigation }) => {
                     </View>
                 </View>
             </ScrollView>
+            
+            {/* CustomAlert component */}
+            <CustomAlert
+                visible={alertVisible}
+                title={alertProps.title}
+                message={alertProps.message}
+                type={alertProps.type}
+                buttons={alertProps.buttons}
+                onClose={() => setAlertVisible(false)}
+            />
         </View>
     );
 };

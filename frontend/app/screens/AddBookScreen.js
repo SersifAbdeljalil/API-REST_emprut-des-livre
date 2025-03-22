@@ -6,7 +6,6 @@ import {
     TouchableOpacity,
     StyleSheet,
     ScrollView,
-    Alert,
     Image,
     ActivityIndicator,
     StatusBar
@@ -16,6 +15,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import CustomAlert from './path/to/CustomAlert'; // Adjust the path as needed
 
 const AddBookScreen = ({ navigation }) => {
     const [title, setTitle] = useState('');
@@ -27,6 +27,13 @@ const AddBookScreen = ({ navigation }) => {
     const [image, setImage] = useState(null);
     const [pdf, setPdf] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [alert, setAlert] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'success',
+        buttons: []
+    });
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -55,31 +62,74 @@ const AddBookScreen = ({ navigation }) => {
                     console.log("Nom du fichier décodé :", decodedFileName);
 
                     setPdf(pdfAsset.uri);
-                    Alert.alert('Succès', `PDF sélectionné: ${decodedFileName}`);
+                    setAlert({
+                        visible: true,
+                        title: 'Succès',
+                        message: `PDF sélectionné: ${decodedFileName}`,
+                        type: 'success',
+                        buttons: [{ text: 'OK', onPress: () => {} }]
+                    });
                 } else {
-                    Alert.alert('Erreur', 'Veuillez sélectionner un fichier PDF valide');
+                    setAlert({
+                        visible: true,
+                        title: 'Erreur',
+                        message: 'Veuillez sélectionner un fichier PDF valide',
+                        type: 'error',
+                        buttons: [{ text: 'OK', onPress: () => {} }]
+                    });
                 }
             } else {
-                Alert.alert('Erreur', 'Aucun fichier PDF sélectionné');
+                setAlert({
+                    visible: true,
+                    title: 'Erreur',
+                    message: 'Aucun fichier PDF sélectionné',
+                    type: 'warning',
+                    buttons: [{ text: 'OK', onPress: () => {} }]
+                });
             }
         } catch (err) {
             console.error('Erreur lors de la sélection du PDF:', err);
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: 'Une erreur est survenue lors de la sélection du PDF',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
         }
     };
 
     const handleSubmit = async () => {
         if (!title || !author || !description || !publicationDate || !genre || !locationEra) {
-            Alert.alert('Erreur', 'Veuillez remplir tous les champs requis');
+            setAlert({
+                visible: true,
+                title: 'Champs Incomplets',
+                message: 'Veuillez remplir tous les champs requis',
+                type: 'warning',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             return;
         }
 
         if (!image) {
-            Alert.alert('Erreur', 'Veuillez ajouter une image de couverture');
+            setAlert({
+                visible: true,
+                title: 'Image Manquante',
+                message: 'Veuillez ajouter une image de couverture',
+                type: 'warning',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             return;
         }
 
         if (!pdf) {
-            Alert.alert('Erreur', 'Veuillez ajouter un fichier PDF');
+            setAlert({
+                visible: true,
+                title: 'PDF Manquant',
+                message: 'Veuillez ajouter un fichier PDF',
+                type: 'warning',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             return;
         }
 
@@ -117,7 +167,14 @@ const AddBookScreen = ({ navigation }) => {
         try {
             const token = await AsyncStorage.getItem('token');
             if (!token) {
-                Alert.alert('Erreur', 'Vous devez être connecté pour ajouter un livre');
+                setAlert({
+                    visible: true,
+                    title: 'Non Connecté',
+                    message: 'Vous devez être connecté pour ajouter un livre',
+                    type: 'error',
+                    buttons: [{ text: 'OK', onPress: () => {} }]
+                });
+                setLoading(false);
                 return;
             }
 
@@ -131,15 +188,37 @@ const AddBookScreen = ({ navigation }) => {
             });
 
             if (response.ok) {
-                Alert.alert('Succès', 'Livre ajouté avec succès');
-                navigation.goBack();
+                setAlert({
+                    visible: true,
+                    title: 'Livre Ajouté',
+                    message: 'Livre ajouté avec succès à la bibliothèque',
+                    type: 'success',
+                    buttons: [{ 
+                        text: 'OK', 
+                        onPress: () => {
+                            navigation.goBack();
+                        } 
+                    }]
+                });
             } else {
                 const errorData = await response.json();
-                Alert.alert('Erreur', errorData.message || 'Impossible d\'ajouter le livre');
+                setAlert({
+                    visible: true,
+                    title: 'Échec',
+                    message: errorData.message || 'Impossible d\'ajouter le livre',
+                    type: 'error',
+                    buttons: [{ text: 'OK', onPress: () => {} }]
+                });
             }
         } catch (error) {
             console.error('Erreur:', error);
-            Alert.alert('Erreur', 'Une erreur est survenue lors de l\'ajout du livre');
+            setAlert({
+                visible: true,
+                title: 'Erreur Serveur',
+                message: 'Une erreur est survenue lors de l\'ajout du livre',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
         } finally {
             setLoading(false);
         }
@@ -345,6 +424,16 @@ const AddBookScreen = ({ navigation }) => {
                     </View>
                 </View>
             </ScrollView>
+
+            {/* CustomAlert component */}
+            <CustomAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                buttons={alert.buttons}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };
@@ -509,6 +598,9 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         overflow: 'hidden',
         marginTop: 10,
+    },
+    disabledButton: {
+        opacity: 0.7,
     },
     submitGradient: {
         flexDirection: 'row',

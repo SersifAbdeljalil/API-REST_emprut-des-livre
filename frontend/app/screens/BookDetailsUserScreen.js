@@ -76,11 +76,20 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
             Alert.alert('Erreur', 'Identifiant du livre manquant');
             return;
         }
-
+    
         try {
             setIsLoading(true);
             const userId = await AsyncStorage.getItem('userId');
             
+            // Vérifiez que userId est bien défini
+            if (!userId) {
+                Alert.alert('Erreur', 'Utilisateur non identifié');
+                setIsLoading(false);
+                return;
+            }
+    
+            console.log("User ID from AsyncStorage:", userId); // Log pour vérifier la valeur de userId
+    
             if (borrowStatus === 'borrowed') {
                 // Retourner un livre
                 const response = await fetch(`http://192.168.1.4:5000/api/borrows/return`, {
@@ -94,7 +103,7 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                         userId: userId
                     }),
                 });
-
+    
                 if (response.ok) {
                     Alert.alert('Succès', 'Livre retourné avec succès');
                     setBorrowStatus(null);
@@ -115,7 +124,7 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                         userId: userId
                     }),
                 });
-
+    
                 if (response.ok) {
                     Alert.alert('Succès', 'Demande d\'emprunt envoyée avec succès');
                     setBorrowStatus('pending');
