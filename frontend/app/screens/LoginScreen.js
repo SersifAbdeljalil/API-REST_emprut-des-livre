@@ -65,7 +65,7 @@ const LoginScreen = () => {
 
     setIsLoading(true);
     try {
-        const res = await axios.post("http://192.168.11.102:5000/api/auth/login", {
+        const res = await axios.post("http://192.168.1.4:5000/api/auth/login", {
             email,
             password
         });
@@ -74,8 +74,13 @@ const LoginScreen = () => {
         console.log("Token stored:", res.data.token);
         setIsLoading(false);
 
-        navigation.replace("Home");
-        console.log("Navigation vers Home");
+        // Redirection en fonction du rôle
+        if (res.data.user.role === 'admin') {
+            navigation.replace("Home"); 
+        } else {
+            navigation.replace("UserHome"); 
+            console.log("User role:", res.data.user.role);
+        }
     } catch (error) {
         console.error("Erreur de connexion:", error);
         

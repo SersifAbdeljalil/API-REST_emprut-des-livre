@@ -26,16 +26,17 @@ const BookDetailsScreen = ({ route, navigation }) => {
         const fetchBookDetails = async () => {
             try {
                 setIsLoading(true);
-                const response = await fetch(`http://192.168.11.102:5000/api/books/${bookId}`, {
+                const response = await fetch(`http://192.168.1.4:5000/api/books/${bookId}`, {
                     headers: {
                         Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
                     },
                 });
                 const data = await response.json();
+                console.log("Réponse de l'API :", data); // Ajoutez ce log
                 const updatedBook = {
                     ...data,
-                    imageUrl: `http://192.168.11.102:5000/${data.image_url.replace("\\", "/")}`,
-                    pdfUrl: `http://192.168.11.102:5000/${data.pdf_url.replace("\\", "/")}`,
+                    imageUrl: `http://192.168.1.4:5000/${data.image_url.replace("\\", "/")}`,
+                    pdfUrl: `http://192.168.1.4:5000/${data.pdf_url.replace("\\", "/")}`,
                 };
                 setBook(updatedBook);
                 setIsLoading(false);
@@ -61,7 +62,7 @@ const BookDetailsScreen = ({ route, navigation }) => {
                     onPress: async () => {
                         try {
                             setIsLoading(true);
-                            const response = await fetch(`http://192.168.11.102:5000/api/books/${bookId}`, {
+                            const response = await fetch(`http://192.168.1.4:5000/api/books/${bookId}`, {
                                 method: 'DELETE',
                                 headers: {
                                     Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
@@ -178,6 +179,16 @@ const BookDetailsScreen = ({ route, navigation }) => {
                         
                         <Text style={styles.sectionTitle}>Description</Text>
                         <Text style={styles.descriptionText}>{book.description}</Text>
+
+                        {/* Nouveaux champs ajoutés ici */}
+                        <Text style={styles.sectionTitle}>Date de publication</Text>
+                        <Text style={styles.descriptionText}>{book.publication_date}</Text>
+
+                        <Text style={styles.sectionTitle}>Genre</Text>
+                        <Text style={styles.descriptionText}>{book.genre}</Text>
+
+                        <Text style={styles.sectionTitle}>Lieu et époque</Text>
+                        <Text style={styles.descriptionText}>{book.location_era}</Text>
                         
                         <View style={styles.actionsSection}>
                             <TouchableOpacity 

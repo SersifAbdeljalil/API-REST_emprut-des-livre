@@ -21,6 +21,9 @@ const EditBookScreen = ({ route, navigation }) => {
     const [title, setTitle] = useState('');
     const [author, setAuthor] = useState('');
     const [description, setDescription] = useState('');
+    const [publicationDate, setPublicationDate] = useState('');
+    const [genre, setGenre] = useState('');
+    const [locationEra, setLocationEra] = useState('');
     const [image, setImage] = useState(null);
     const [originalImage, setOriginalImage] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -37,7 +40,7 @@ const EditBookScreen = ({ route, navigation }) => {
                     return;
                 }
 
-                const response = await fetch(`http://192.168.11.102:5000/api/books/${bookId}`, {
+                const response = await fetch(`http://192.168.1.4:5000/api/books/${bookId}`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -51,6 +54,9 @@ const EditBookScreen = ({ route, navigation }) => {
                 setTitle(data.title);
                 setAuthor(data.author);
                 setDescription(data.description);
+                setPublicationDate(data.publication_date || '');
+                setGenre(data.genre || '');
+                setLocationEra(data.location_era || '');
                 setImage(data.imageUrl);
                 setOriginalImage(data.imageUrl);
             } catch (error) {
@@ -79,7 +85,7 @@ const EditBookScreen = ({ route, navigation }) => {
     };
 
     const handleSubmit = async () => {
-        if (!title || !author || !description) {
+        if (!title || !author || !description || !publicationDate || !genre || !locationEra) {
             Alert.alert('Erreur', 'Veuillez remplir tous les champs requis');
             return;
         }
@@ -90,6 +96,9 @@ const EditBookScreen = ({ route, navigation }) => {
         formData.append('title', title);
         formData.append('author', author);
         formData.append('description', description);
+        formData.append('publication_date', publicationDate);
+        formData.append('genre', genre);
+        formData.append('location_era', locationEra);
 
         // Vérifier si l'image a été modifiée
         if (image && image !== originalImage) {
@@ -110,7 +119,7 @@ const EditBookScreen = ({ route, navigation }) => {
                 return;
             }
 
-            const response = await fetch(`http://192.168.11.102:5000/api/books/${bookId}`, {
+            const response = await fetch(`http://192.168.1.4:5000/api/books/${bookId}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -207,6 +216,48 @@ const EditBookScreen = ({ route, navigation }) => {
                                     placeholderTextColor="#999"
                                     multiline
                                     numberOfLines={4}
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Date de publication</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="calendar-outline" size={20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={publicationDate}
+                                    onChangeText={setPublicationDate}
+                                    placeholder="Date de publication (YYYY-MM-DD)"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Genre</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="pricetag-outline" size={20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={genre}
+                                    onChangeText={setGenre}
+                                    placeholder="Genre du livre"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Lieu et époque</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="location-outline" size={20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={locationEra}
+                                    onChangeText={setLocationEra}
+                                    placeholder="Lieu et époque du livre"
+                                    placeholderTextColor="#999"
                                 />
                             </View>
                         </View>
@@ -416,6 +467,9 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         marginTop: 10,
     },
+    disabledButton: {
+        opacity: 0.7,
+    },
     submitGradient: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -429,9 +483,6 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 18,
         fontWeight: 'bold',
-    },
-    disabledButton: {
-        opacity: 0.7,
     },
 });
 

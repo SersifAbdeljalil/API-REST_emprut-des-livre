@@ -9,16 +9,19 @@ import {
     Alert,
     RefreshControl,
     ActivityIndicator,
-    StatusBar
+    StatusBar,
+    TextInput
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const HomeScreen = ({ navigation }) => {
+const UserHomeScreen = ({ navigation }) => {
     const [books, setBooks] = useState([]);
+    const [filteredBooks, setFilteredBooks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const fetchBooks = async () => {
         try {
@@ -40,6 +43,7 @@ const HomeScreen = ({ navigation }) => {
             
             const data = await response.json();
             setBooks(data);
+            setFilteredBooks(data);
         } catch (error) {
             console.error('Erreur:', error);
             Alert.alert('Erreur', 'Impossible de charger les livres');
@@ -59,35 +63,47 @@ const HomeScreen = ({ navigation }) => {
         return unsubscribe;
     }, [navigation]);
 
-    const handleLogout = async () => {
-        Alert.alert(
-            'Déconnexion',
-            'Êtes-vous sûr de vouloir vous déconnecter ?',
-            [
-                {
-                    text: 'Annuler',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Déconnecter',
-                    onPress: async () => {
-                        try {
-                            await AsyncStorage.removeItem('token');
-                            navigation.replace('Login');
-                        } catch (error) {
-                            Alert.alert('Erreur', 'Problème lors de la déconnexion');
-                        }
-                    },
-                },
-            ],
-            { cancelable: true }
-        );
-    };
+    useEffect(() => {
+        if (searchQuery.trim() === '') {
+            setFilteredBooks(books);
+        } else {
+            const filtered = books.filter(book => 
+                book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                book.author.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+            setFilteredBooks(filtered);
+        }
+    }, [searchQuery, books]);
+
+    // const handleLogout = async () => {
+    //     Alert.alert(
+    //         'Déconnexion',
+    //         'Êtes-vous sûr de vouloir vous déconnecter ?',
+    //         [
+    //             {
+    //                 text: 'Annuler',
+    //                 style: 'cancel',
+    //             },
+    //             {
+    //                 text: 'Déconnecter',
+    //                 onPress: async () => {
+    //                     try {
+    //                         await AsyncStorage.removeItem('token');
+    //                         navigation.replace('Login');
+    //                     } catch (error) {
+    //                         Alert.alert('Erreur', 'Problème lors de la déconnexion');
+    //                     }
+    //                 },
+    //             },
+    //         ],
+    //         { cancelable: true }
+    //     );
+    // };
 
     const renderBookItem = ({ item }) => (
         <TouchableOpacity 
             style={styles.bookCard}
-            onPress={() => navigation.navigate('BookDetails', { bookId: item.id })}
+            onPress={() => navigation.navigate('DetailsUser', { bookId: item.id })}
             activeOpacity={0.7}
         >
             <View style={styles.imageContainer}>
@@ -126,18 +142,32 @@ const HomeScreen = ({ navigation }) => {
             
             {/* En-tête avec dégradé */}
             <LinearGradient
-                colors={['#3a416f', '#141727']}
-                style={styles.headerGradient}
-            >
-                <Text style={styles.headerTitle}>Ma Bibliothèque</Text>
-                <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-                    <Ionicons name="log-out-outline" size={24} color="white" />
-                </TouchableOpacity>
-            </LinearGradient>
+    colors={['#3a416f', '#141727']}
+    style={styles.headerGradient}
+>
+    <Text style={styles.headerTitle}>Ma Bibliothèque</Text>
+</LinearGradient>
+
+            {/* Barre de recherche */}
+            <View style={styles.searchContainer}>
+                <Ionicons name="search-outline" size={20} color="#A0AEC0" style={styles.searchIcon} />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Rechercher un livre..."
+                    placeholderTextColor="#A0AEC0"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                        <Ionicons name="close-circle" size={20} color="#A0AEC0" />
+                    </TouchableOpacity>
+                )}
+            </View>
 
             <View style={styles.container}>
                 <FlatList
-                    data={books}
+                    data={filteredBooks}
                     renderItem={renderBookItem}
                     keyExtractor={item => item.id.toString()}
                     contentContainerStyle={styles.bookList}
@@ -155,34 +185,32 @@ const HomeScreen = ({ navigation }) => {
                     }
                     ListEmptyComponent={() => (
                         <View style={styles.emptyContainer}>
-                            <View style={styles.emptyIconContainer}>
-                                <Ionicons name="book-outline" size={60} color="#A0AEC0" />
-                            </View>
-                            <Text style={styles.emptyTitle}>Aucun livre trouvé</Text>
-                            <Text style={styles.emptyText}>
-                                Votre bibliothèque est vide. Ajoutez des livres en cliquant sur le bouton ci-dessous.
-                            </Text>
+                            {searchQuery.length > 0 ? (
+                                <>
+                                    <View style={styles.emptyIconContainer}>
+                                        <Ionicons name="search-outline" size={60} color="#A0AEC0" />
+                                    </View>
+                                    <Text style={styles.emptyTitle}>Aucun résultat trouvé</Text>
+                                    <Text style={styles.emptyText}>
+                                        Aucun livre ne correspond à votre recherche. Essayez avec d'autres termes.
+                                    </Text>
+                                </>
+                            ) : (
+                                <>
+                                    <View style={styles.emptyIconContainer}>
+                                        <Ionicons name="book-outline" size={60} color="#A0AEC0" />
+                                    </View>
+                                    <Text style={styles.emptyTitle}>Aucun livre disponible</Text>
+                                    <Text style={styles.emptyText}>
+                                        Aucun livre n'est disponible dans la bibliothèque pour le moment.
+                                    </Text>
+                                </>
+                            )}
                         </View>
                     )}
                     showsVerticalScrollIndicator={false}
                 />
             </View>
-
-            {/* Bouton d'ajout avec dégradé */}
-            <TouchableOpacity 
-                style={styles.addButton}
-                onPress={() => navigation.navigate('AddBook')}
-                activeOpacity={0.8}
-            >
-                <LinearGradient
-                    colors={['#4F6CE1', '#7D55F3']}
-                    style={styles.addButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                >
-                    <Ionicons name="add" size={30} color="white" />
-                </LinearGradient>
-            </TouchableOpacity>
         </View>
     );
 };
@@ -207,6 +235,33 @@ const styles = StyleSheet.create({
     },
     logoutButton: {
         padding: 8,
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        marginHorizontal: 15,
+        marginTop: 15,
+        marginBottom: 5,
+        borderRadius: 10,
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    searchIcon: {
+        marginRight: 10,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 16,
+        color: '#2D3748',
+    },
+    clearButton: {
+        padding: 5,
     },
     container: {
         flex: 1,
@@ -278,26 +333,6 @@ const styles = StyleSheet.create({
         color: '#4A5568',
         fontWeight: '500',
     },
-    addButton: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        elevation: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        overflow: 'hidden',
-    },
-    addButtonGradient: {
-        width: '100%',
-        height: '100%',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     emptyContainer: {
         alignItems: 'center',
         padding: 30,
@@ -324,4 +359,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default HomeScreen;
+export default UserHomeScreen;

@@ -21,6 +21,9 @@ const AddBookScreen = ({ navigation }) => {
     const [title, setTitle] = useState('');
     const [author, setAuthor] = useState('');
     const [description, setDescription] = useState('');
+    const [publicationDate, setPublicationDate] = useState('');
+    const [genre, setGenre] = useState('');
+    const [locationEra, setLocationEra] = useState('');
     const [image, setImage] = useState(null);
     const [pdf, setPdf] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -44,13 +47,13 @@ const AddBookScreen = ({ navigation }) => {
                 type: 'application/pdf',
                 copyToCacheDirectory: true
             });
-    
+
             if (result && result.assets && result.assets.length > 0) {
                 const pdfAsset = result.assets[0];
                 if (pdfAsset.mimeType === 'application/pdf') {
                     const decodedFileName = decodeURIComponent(pdfAsset.name);
                     console.log("Nom du fichier décodé :", decodedFileName);
-                    
+
                     setPdf(pdfAsset.uri);
                     Alert.alert('Succès', `PDF sélectionné: ${decodedFileName}`);
                 } else {
@@ -63,9 +66,9 @@ const AddBookScreen = ({ navigation }) => {
             console.error('Erreur lors de la sélection du PDF:', err);
         }
     };
-    
+
     const handleSubmit = async () => {
-        if (!title || !author || !description) {
+        if (!title || !author || !description || !publicationDate || !genre || !locationEra) {
             Alert.alert('Erreur', 'Veuillez remplir tous les champs requis');
             return;
         }
@@ -86,11 +89,14 @@ const AddBookScreen = ({ navigation }) => {
         formData.append('title', title);
         formData.append('author', author);
         formData.append('description', description);
-        
+        formData.append('publication_date', publicationDate);
+        formData.append('genre', genre);
+        formData.append('location_era', locationEra);
+
         if (image) {
             const imageName = image.split('/').pop();
             const imageType = 'image/' + (imageName.endsWith('png') ? 'png' : 'jpeg');
-            
+
             formData.append('image', {
                 uri: image,
                 name: imageName,
@@ -100,7 +106,7 @@ const AddBookScreen = ({ navigation }) => {
 
         if (pdf) {
             const pdfName = pdf.split('/').pop();
-            
+
             formData.append('pdf', {
                 uri: pdf,
                 name: pdfName,
@@ -115,7 +121,7 @@ const AddBookScreen = ({ navigation }) => {
                 return;
             }
 
-            const response = await fetch('http://192.168.11.102:5000/api/books', {
+            const response = await fetch('http://192.168.1.4:5000/api/books', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -142,23 +148,23 @@ const AddBookScreen = ({ navigation }) => {
     return (
         <View style={styles.mainContainer}>
             <StatusBar barStyle="light-content" />
-            
+
             {/* En-tête avec titre */}
             <LinearGradient
                 colors={['#3a416f', '#141727']}
                 style={styles.headerGradient}
             >
-                <TouchableOpacity 
-                    style={styles.backButton} 
+                <TouchableOpacity
+                    style={styles.backButton}
                     onPress={() => navigation.goBack()}
                 >
                     <Ionicons name="arrow-back" size={24} color="white" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Ajouter un livre</Text>
             </LinearGradient>
-            
-            <ScrollView 
-                style={styles.container} 
+
+            <ScrollView
+                style={styles.container}
                 contentContainerStyle={styles.contentContainer}
                 showsVerticalScrollIndicator={false}
             >
@@ -207,11 +213,53 @@ const AddBookScreen = ({ navigation }) => {
                             </View>
                         </View>
 
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Date de publication</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="calendar-outline" size={20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={publicationDate}
+                                    onChangeText={setPublicationDate}
+                                    placeholder="Date de publication (YYYY-MM-DD)"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Genre</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="pricetag-outline" size={20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={genre}
+                                    onChangeText={setGenre}
+                                    placeholder="Genre du livre"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Lieu et époque</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="location-outline" size={20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={locationEra}
+                                    onChangeText={setLocationEra}
+                                    placeholder="Lieu et époque du livre"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+                        </View>
+
                         <View style={styles.divider} />
 
                         <View style={styles.uploadSection}>
                             <Text style={styles.sectionTitle}>Média</Text>
-                            
+
                             <View style={styles.uploadGroup}>
                                 <Text style={styles.label}>Image de couverture</Text>
                                 {!image ? (
@@ -229,7 +277,7 @@ const AddBookScreen = ({ navigation }) => {
                                 ) : (
                                     <View style={styles.previewContainer}>
                                         <Image source={{ uri: image }} style={styles.imagePreview} />
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             style={styles.removeButton}
                                             onPress={() => setImage(null)}
                                         >
@@ -261,7 +309,7 @@ const AddBookScreen = ({ navigation }) => {
                                         <Text style={styles.pdfName} numberOfLines={1}>
                                             {pdf.split('/').pop()}
                                         </Text>
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             style={styles.removePdfButton}
                                             onPress={() => setPdf(null)}
                                         >
