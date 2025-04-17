@@ -26,7 +26,7 @@ const BookDetailsScreen = ({ route, navigation }) => {
         const fetchBookDetails = async () => {
             try {
                 setIsLoading(true);
-                const response = await fetch(`http://192.168.1.4:5000/api/books/${bookId}`, {
+                const response = await fetch(`http://192.168.11.119:5000/api/books/${bookId}`, {
                     headers: {
                         Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
                     },
@@ -35,8 +35,8 @@ const BookDetailsScreen = ({ route, navigation }) => {
                 console.log("Réponse de l'API :", data); // Ajoutez ce log
                 const updatedBook = {
                     ...data,
-                    imageUrl: `http://192.168.1.4:5000/${data.image_url.replace("\\", "/")}`,
-                    pdfUrl: `http://192.168.1.4:5000/${data.pdf_url.replace("\\", "/")}`,
+                    imageUrl: `http://192.168.11.119:5000/${data.image_url.replace("\\", "/")}`,
+                    pdfUrl: `http://192.168.11.119:5000/${data.pdf_url.replace("\\", "/")}`,
                 };
                 setBook(updatedBook);
                 setIsLoading(false);
@@ -189,7 +189,11 @@ const BookDetailsScreen = ({ route, navigation }) => {
 
                         <Text style={styles.sectionTitle}>Lieu et époque</Text>
                         <Text style={styles.descriptionText}>{book.location_era}</Text>
-                        
+                        <Text style={styles.sectionTitle}>Quantité disponible</Text>
+<View style={styles.quantityContainer}>
+    <Ionicons name="list-outline" size={20} color="#666" style={styles.quantityIcon} />
+    <Text style={styles.quantityText}>{book.quantity || 1}</Text>
+</View>
                         <View style={styles.actionsSection}>
                             <TouchableOpacity 
                                 style={styles.actionButton}
@@ -392,6 +396,22 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: '600',
+    },
+    quantityContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F7FAFC',
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 20,
+    },
+    quantityIcon: {
+        marginRight: 10,
+    },
+    quantityText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#4A5568',
     },
 });
 

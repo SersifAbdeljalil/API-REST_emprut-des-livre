@@ -8,9 +8,9 @@ const db = require("../config/db");
 const checkBookAvailability = (req, res, next) => {
     const { bookId } = req.body;
     
-    // Vérifier si le livre est déjà emprunté
+    // Vérifier si le livre a une quantité disponible
     db.query(
-        "SELECT COUNT(*) as borrowCount FROM borrows WHERE book_id = ? AND status IN ('borrowed', 'approved')",
+        "SELECT quantity FROM books WHERE id = ?",
         [bookId],
         (err, results) => {
             if (err) {
@@ -18,8 +18,12 @@ const checkBookAvailability = (req, res, next) => {
                 return res.status(500).json({ message: "Erreur serveur" });
             }
             
-            if (results[0].borrowCount > 0) {
-                return res.status(400).json({ message: "Ce livre n'est pas disponible actuellement" });
+            if (results.length === 0) {
+                return res.status(404).json({ message: "Livre non trouvé" });
+            }
+            
+            if (results[0].quantity <= 0) {
+                return res.status(400).json({ message: "Ce livre n'est pas disponible actuellement (stock épuisé)" });
             }
             
             next();
@@ -75,7 +79,80 @@ router.post("/request", auth, checkBookAvailability, (req, res) => {
         }
     );
 });
-
+// Confirmer le retour d'un livre (admin)
+router.post("/admin/confirm-return", [auth, admin], (req, res) => {
+    const { borrowId, notes } = req.body;
+    
+    // Obtenir d'abord les informations de l'emprunt pour connaître le livre concerné
+    db.query(
+        "SELECT book_id FROM borrows WHERE id = ? AND status = 'borrowed'",
+        [borrowId],
+        (err, borrowResults) => {
+            if (err) {
+                console.error("Erreur lors de la récupération de l'emprunt:", err);
+                return res.status(500).json({ message: "Erreur serveur" });
+            }
+            
+            if (borrowResults.length === 0) {
+                return res.status(404).json({ message: "Emprunt non trouvé ou déjà retourné" });
+            }
+            
+            const bookId = borrowResults[0].book_id;
+            
+            // Commencer une transaction
+            db.beginTransaction(err => {
+                if (err) {
+                    console.error("Erreur lors du démarrage de la transaction:", err);
+                    return res.status(500).json({ message: "Erreur serveur" });
+                }
+                
+                // 1. Mettre à jour le statut de l'emprunt
+                db.query(
+                    "UPDATE borrows SET status = 'returned', return_date = NOW(), admin_notes = CONCAT(IFNULL(admin_notes, ''), '\n', ?) WHERE id = ?",
+                    [notes || 'Retour confirmé', borrowId],
+                    (err, updateResult) => {
+                        if (err) {
+                            return db.rollback(() => {
+                                console.error("Erreur lors de la confirmation du retour:", err);
+                                res.status(500).json({ message: "Erreur lors de la confirmation" });
+                            });
+                        }
+                        
+                        // 2. Augmenter la quantité du livre
+                        db.query(
+                            "UPDATE books SET quantity = quantity + 1 WHERE id = ?",
+                            [bookId],
+                            (err, quantityResult) => {
+                                if (err) {
+                                    return db.rollback(() => {
+                                        console.error("Erreur lors de la mise à jour de la quantité:", err);
+                                        res.status(500).json({ message: "Erreur lors de la mise à jour de la quantité" });
+                                    });
+                                }
+                                
+                                // Valider la transaction
+                                db.commit(err => {
+                                    if (err) {
+                                        return db.rollback(() => {
+                                            console.error("Erreur lors de la validation de la transaction:", err);
+                                            res.status(500).json({ message: "Erreur serveur" });
+                                        });
+                                    }
+                                    
+                                    console.log(`Quantité augmentée pour le livre ${bookId} suite au retour.`);
+                                    
+                                    res.json({ 
+                                        message: "Retour confirmé avec succès et quantité mise à jour"
+                                    });
+                                });
+                            }
+                        );
+                    }
+                );
+            });
+        }
+    );
+});
 // Obtenir le statut d'emprunt d'un livre pour un utilisateur
 router.get("/status", auth, (req, res) => {
     const { bookId, userId } = req.query;
@@ -126,7 +203,7 @@ router.get("/user/:userId", auth, (req, res) => {
             
             const formattedResults = results.map(borrow => ({
                 ...borrow,
-                imageUrl: borrow.image_url ? `http://192.168.1.4:5000/${borrow.image_url.replace("\\", "/")}` : null
+                imageUrl: borrow.image_url ? `http://192.168.11.119:5000/${borrow.image_url.replace("\\", "/")}` : null
             }));
             
             res.json(formattedResults);
@@ -176,9 +253,14 @@ router.post("/cancel", auth, (req, res) => {
     );
 });
 
-// Retourner un livre
+// Retourner un livre (par l'utilisateur)
 router.post("/return", auth, (req, res) => {
     const { bookId, userId } = req.body;
+    
+    // Vérifier que l'utilisateur retourne son propre emprunt
+    if (req.user.id !== parseInt(userId) && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Accès non autorisé" });
+    }
     
     db.query(
         "SELECT * FROM borrows WHERE book_id = ? AND user_id = ? AND status = 'borrowed'",
@@ -193,18 +275,53 @@ router.post("/return", auth, (req, res) => {
                 return res.status(404).json({ message: "Aucun emprunt actif trouvé pour ce livre" });
             }
             
-            db.query(
-                "UPDATE borrows SET status = 'returned', return_date = NOW() WHERE id = ?",
-                [results[0].id],
-                (err, result) => {
-                    if (err) {
-                        console.error("Erreur lors du retour du livre:", err);
-                        return res.status(500).json({ message: "Erreur lors du retour" });
-                    }
-                    
-                    res.json({ message: "Livre retourné avec succès" });
+            // Commencer une transaction
+            db.beginTransaction(err => {
+                if (err) {
+                    console.error("Erreur lors du démarrage de la transaction:", err);
+                    return res.status(500).json({ message: "Erreur serveur" });
                 }
-            );
+                
+                // 1. Mettre à jour le statut de l'emprunt
+                db.query(
+                    "UPDATE borrows SET status = 'returned', return_date = NOW() WHERE id = ?",
+                    [results[0].id],
+                    (err, result) => {
+                        if (err) {
+                            return db.rollback(() => {
+                                console.error("Erreur lors du retour du livre:", err);
+                                res.status(500).json({ message: "Erreur lors du retour" });
+                            });
+                        }
+                        
+                        // 2. Augmenter la quantité du livre
+                        db.query(
+                            "UPDATE books SET quantity = quantity + 1 WHERE id = ?",
+                            [bookId],
+                            (err, quantityResult) => {
+                                if (err) {
+                                    return db.rollback(() => {
+                                        console.error("Erreur lors de la mise à jour de la quantité:", err);
+                                        res.status(500).json({ message: "Erreur lors de la mise à jour de la quantité" });
+                                    });
+                                }
+                                
+                                // Valider la transaction
+                                db.commit(err => {
+                                    if (err) {
+                                        return db.rollback(() => {
+                                            console.error("Erreur lors de la validation de la transaction:", err);
+                                            res.status(500).json({ message: "Erreur serveur" });
+                                        });
+                                    }
+                                    
+                                    res.json({ message: "Livre retourné avec succès et quantité mise à jour" });
+                                });
+                            }
+                        );
+                    }
+                );
+            });
         }
     );
 });
@@ -227,7 +344,7 @@ router.get("/admin/all", [auth, admin], (req, res) => {
             
             const formattedResults = results.map(borrow => ({
                 ...borrow,
-                imageUrl: borrow.image_url ? `http://192.168.1.4:5000/${borrow.image_url.replace("\\", "/")}` : null
+                imageUrl: borrow.image_url ? `http://192.168.11.119:5000/${borrow.image_url.replace("\\", "/")}` : null
             }));
             
             res.json(formattedResults);
@@ -275,34 +392,187 @@ router.post("/admin/reject", [auth, admin], (req, res) => {
 router.post("/admin/confirm-borrow", [auth, admin], (req, res) => {
     const { borrowId } = req.body;
     
+    // Obtenir d'abord les informations de l'emprunt pour connaître le livre concerné
     db.query(
-        "UPDATE borrows SET status = 'borrowed', borrow_date = NOW() WHERE id = ? AND status = 'approved'",
+        "SELECT book_id FROM borrows WHERE id = ? AND status = 'approved'",
         [borrowId],
-        (err, result) => {
+        (err, borrowResults) => {
             if (err) {
-                console.error("Erreur lors de la confirmation de l'emprunt:", err);
-                return res.status(500).json({ message: "Erreur lors de la confirmation" });
+                console.error("Erreur lors de la récupération de l'emprunt:", err);
+                return res.status(500).json({ message: "Erreur serveur" });
             }
             
-            res.json({ message: "Emprunt confirmé avec succès" });
+            if (borrowResults.length === 0) {
+                return res.status(404).json({ message: "Demande d'emprunt non trouvée ou déjà traitée" });
+            }
+            
+            const bookId = borrowResults[0].book_id;
+            
+            // Vérifier la quantité disponible du livre
+            db.query(
+                "SELECT quantity FROM books WHERE id = ?",
+                [bookId],
+                (err, bookResults) => {
+                    if (err) {
+                        console.error("Erreur lors de la vérification de la quantité:", err);
+                        return res.status(500).json({ message: "Erreur serveur" });
+                    }
+                    
+                    if (bookResults.length === 0) {
+                        return res.status(404).json({ message: "Livre non trouvé" });
+                    }
+                    
+                    if (bookResults[0].quantity <= 0) {
+                        return res.status(400).json({ message: "Ce livre n'est plus disponible en stock" });
+                    }
+                    
+                    // Commencer une transaction
+                    db.beginTransaction(err => {
+                        if (err) {
+                            console.error("Erreur lors du démarrage de la transaction:", err);
+                            return res.status(500).json({ message: "Erreur serveur" });
+                        }
+                        
+                        // 1. Mettre à jour le statut de l'emprunt
+                        db.query(
+                            "UPDATE borrows SET status = 'borrowed', borrow_date = NOW() WHERE id = ?",
+                            [borrowId],
+                            (err, updateResult) => {
+                                if (err) {
+                                    return db.rollback(() => {
+                                        console.error("Erreur lors de la confirmation de l'emprunt:", err);
+                                        res.status(500).json({ message: "Erreur lors de la confirmation" });
+                                    });
+                                }
+                                
+                                // 2. Diminuer la quantité du livre
+                                db.query(
+                                    "UPDATE books SET quantity = quantity - 1 WHERE id = ? AND quantity > 0",
+                                    [bookId],
+                                    (err, quantityResult) => {
+                                        if (err) {
+                                            return db.rollback(() => {
+                                                console.error("Erreur lors de la mise à jour de la quantité:", err);
+                                                res.status(500).json({ message: "Erreur lors de la mise à jour de la quantité" });
+                                            });
+                                        }
+                                        
+                                        // Valider la transaction
+                                        db.commit(err => {
+                                            if (err) {
+                                                return db.rollback(() => {
+                                                    console.error("Erreur lors de la validation de la transaction:", err);
+                                                    res.status(500).json({ message: "Erreur serveur" });
+                                                });
+                                            }
+                                            
+                                            res.json({ 
+                                                message: "Emprunt confirmé avec succès et quantité mise à jour", 
+                                                newQuantity: bookResults[0].quantity - 1 
+                                            });
+                                        });
+                                    }
+                                );
+                            }
+                        );
+                    });
+                }
+            );
         }
     );
 });
 
-// Confirmer le retour d'un livre (admin)
-router.post("/admin/confirm-return", [auth, admin], (req, res) => {
+router.post("/admin/confirm-borrow", [auth, admin], (req, res) => {
     const { borrowId, notes } = req.body;
     
+    // Obtenir d'abord les informations de l'emprunt pour connaître le livre concerné
     db.query(
-        "UPDATE borrows SET status = 'returned', return_date = NOW(), admin_notes = CONCAT(IFNULL(admin_notes, ''), '\n', ?) WHERE id = ?",
-        [notes || 'Retour confirmé', borrowId],
-        (err, result) => {
+        "SELECT book_id FROM borrows WHERE id = ? AND status = 'approved'",
+        [borrowId],
+        (err, borrowResults) => {
             if (err) {
-                console.error("Erreur lors de la confirmation du retour:", err);
-                return res.status(500).json({ message: "Erreur lors de la confirmation" });
+                console.error("Erreur lors de la récupération de l'emprunt:", err);
+                return res.status(500).json({ message: "Erreur serveur" });
             }
             
-            res.json({ message: "Retour confirmé avec succès" });
+            if (borrowResults.length === 0) {
+                return res.status(404).json({ message: "Demande d'emprunt non trouvée ou déjà traitée" });
+            }
+            
+            const bookId = borrowResults[0].book_id;
+            
+            // Vérifier la quantité disponible du livre
+            db.query(
+                "SELECT quantity FROM books WHERE id = ?",
+                [bookId],
+                (err, bookResults) => {
+                    if (err) {
+                        console.error("Erreur lors de la vérification de la quantité:", err);
+                        return res.status(500).json({ message: "Erreur serveur" });
+                    }
+                    
+                    if (bookResults.length === 0) {
+                        return res.status(404).json({ message: "Livre non trouvé" });
+                    }
+                    
+                    if (bookResults[0].quantity <= 0) {
+                        return res.status(400).json({ message: "Ce livre n'est plus disponible en stock" });
+                    }
+                    
+                    // Commencer une transaction
+                    db.beginTransaction(err => {
+                        if (err) {
+                            console.error("Erreur lors du démarrage de la transaction:", err);
+                            return res.status(500).json({ message: "Erreur serveur" });
+                        }
+                        
+                        // 1. Mettre à jour le statut de l'emprunt
+                        db.query(
+                            "UPDATE borrows SET status = 'borrowed', borrow_date = NOW(), admin_notes = CONCAT(IFNULL(admin_notes, ''), '\n', ?) WHERE id = ?",
+                            [notes || 'Emprunt confirmé', borrowId],
+                            (err, updateResult) => {
+                                if (err) {
+                                    return db.rollback(() => {
+                                        console.error("Erreur lors de la confirmation de l'emprunt:", err);
+                                        res.status(500).json({ message: "Erreur lors de la confirmation" });
+                                    });
+                                }
+                                
+                               
+                                db.query(
+                                    "UPDATE books SET quantity = quantity - 1 WHERE id = ? AND quantity > 0",
+                                    [bookId],
+                                    (err, quantityResult) => {
+                                        if (err) {
+                                            return db.rollback(() => {
+                                                console.error("Erreur lors de la mise à jour de la quantité:", err);
+                                                res.status(500).json({ message: "Erreur lors de la mise à jour de la quantité" });
+                                            });
+                                        }
+                                        
+                                        // Valider la transaction
+                                        db.commit(err => {
+                                            if (err) {
+                                                return db.rollback(() => {
+                                                    console.error("Erreur lors de la validation de la transaction:", err);
+                                                    res.status(500).json({ message: "Erreur serveur" });
+                                                });
+                                            }
+                                            
+                                            console.log(`Quantité diminuée pour le livre ${bookId}. Nouvelle quantité: ${bookResults[0].quantity - 1}`);
+                                            
+                                            res.json({ 
+                                                message: "Emprunt confirmé avec succès et quantité mise à jour", 
+                                                newQuantity: bookResults[0].quantity - 1 
+                                            });
+                                        });
+                                    }
+                                );
+                            }
+                        );
+                    });
+                }
+            );
         }
     );
 });

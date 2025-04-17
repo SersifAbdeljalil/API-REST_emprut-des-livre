@@ -20,10 +20,8 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
     const [book, setBook] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [borrowStatus, setBorrowStatus] = useState(null);
-
-    // Vérifier si bookId est défini avant de charger les détails
+    
     useEffect(() => {
-        // Si bookId n'est pas défini, afficher un message d'erreur et retourner
         if (!bookId) {
             setIsLoading(false);
             return;
@@ -32,8 +30,7 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
         const fetchBookDetails = async () => {
             try {
                 setIsLoading(true);
-                // Récupération des détails du livre
-                const response = await fetch(`http://192.168.1.4:5000/api/books/${bookId}`, {
+                const response = await fetch(`http://192.168.11.119:5000/api/books/${bookId}`, {
                     headers: {
                         Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
                     },
@@ -42,14 +39,12 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
 
                 const updatedBook = {
                     ...data,
-                    imageUrl: `http://192.168.1.4:5000/${data.image_url.replace("\\", "/")}`,
-                    pdfUrl: data.pdf_url ? `http://192.168.1.4:5000/${data.pdf_url.replace("\\", "/")}` : null,
+                    imageUrl: `http://192.168.11.119:5000/${data.image_url.replace("\\", "/")}`,
+                    pdfUrl: data.pdf_url ? `http://192.168.11.119:5000/${data.pdf_url.replace("\\", "/")}` : null,
                 };
                 setBook(updatedBook);
-
-                // Récupération du statut d'emprunt pour ce livre par l'utilisateur courant
                 const userId = await AsyncStorage.getItem('userId');
-                const borrowResponse = await fetch(`http://192.168.1.4:5000/api/borrows/status?bookId=${bookId}&userId=${userId}`, {
+                const borrowResponse = await fetch(`http://192.168.11.119:5000/api/borrows/status?bookId=${bookId}&userId=${userId}`, {
                     headers: {
                         Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
                     },
@@ -70,29 +65,31 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
         fetchBookDetails();
     }, [bookId]);
 
-    // Gérer la demande d'emprunt
     const handleBorrowRequest = async () => {
         if (!bookId) {
             Alert.alert('Erreur', 'Identifiant du livre manquant');
+            return;
+        }
+
+        // Vérifier si le livre est disponible en quantité suffisante
+        if (book.quantity <= 0 && borrowStatus !== 'borrowed') {
+            Alert.alert('Livre indisponible', 'Ce livre n\'est actuellement pas disponible en stock.');
             return;
         }
     
         try {
             setIsLoading(true);
             const userId = await AsyncStorage.getItem('userId');
-            
-            // Vérifiez que userId est bien défini
             if (!userId) {
                 Alert.alert('Erreur', 'Utilisateur non identifié');
                 setIsLoading(false);
                 return;
             }
     
-            console.log("User ID from AsyncStorage:", userId); // Log pour vérifier la valeur de userId
+            console.log("User ID from AsyncStorage:", userId);
     
             if (borrowStatus === 'borrowed') {
-                // Retourner un livre
-                const response = await fetch(`http://192.168.1.4:5000/api/borrows/return`, {
+                const response = await fetch(`http://192.168.11.119:5000/api/borrows/return`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -107,13 +104,18 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                 if (response.ok) {
                     Alert.alert('Succès', 'Livre retourné avec succès');
                     setBorrowStatus(null);
+                    // Mettre à jour la quantité affichée localement
+                    setBook(prev => ({
+                        ...prev,
+                        quantity: (prev.quantity || 0) + 1
+                    }));
                 } else {
                     const errorData = await response.json();
                     Alert.alert('Erreur', errorData.message || 'Impossible de retourner le livre');
                 }
             } else {
                 // Emprunter un livre
-                const response = await fetch(`http://192.168.1.4:5000/api/borrows/request`, {
+                const response = await fetch(`http://192.168.11.119:5000/api/borrows/request`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -141,12 +143,14 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
             setIsLoading(false);
         }
     };
-
-    // Rendu conditionnel du bouton d'action selon le statut d'emprunt
+    
     const renderActionButton = () => {
         let buttonText = '';
         let buttonColors = ['#4F6CE1', '#7D55F3'];
         let isDisabled = false;
+
+        // Vérifier la quantité
+        const isOutOfStock = (book.quantity <= 0);
 
         switch (borrowStatus) {
             case 'pending':
@@ -164,7 +168,9 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                 buttonColors = ['#DD6B20', '#C05621'];
                 break;
             default:
-                buttonText = 'Emprunter ce livre';
+                buttonText = isOutOfStock ? 'Indisponible en stock' : 'Emprunter ce livre';
+                buttonColors = isOutOfStock ? ['#A0AEC0', '#718096'] : ['#4F6CE1', '#7D55F3'];
+                isDisabled = isOutOfStock;
                 break;
         }
 
@@ -181,7 +187,8 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                     end={{ x: 1, y: 0 }}
                 >
                     <Ionicons 
-                        name={borrowStatus === 'borrowed' ? "return-down-back-outline" : "book-outline"} 
+                        name={borrowStatus === 'borrowed' ? "return-down-back-outline" : 
+                              isOutOfStock ? "alert-circle-outline" : "book-outline"} 
                         size={22} 
                         color="white" 
                     />
@@ -295,6 +302,12 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                         <Text style={styles.sectionTitle}>Lieu et époque</Text>
                         <Text style={styles.descriptionText}>{book.location_era}</Text>
                         
+                        <Text style={styles.sectionTitle}>Quantité disponible</Text>
+                        <View style={styles.quantityContainer}>
+                            <Ionicons name="list-outline" size={20} color="#666" style={styles.quantityIcon} />
+                            <Text style={styles.quantityText}>{book.quantity || 0}</Text>
+                        </View>
+                        
                         <View style={styles.actionsSection}>
                             {renderActionButton()}
                         </View>
@@ -308,55 +321,49 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     mainContainer: {
         flex: 1,
-        backgroundColor: '#f5f6fa',
+        backgroundColor: '#f6f7fb',
     },
     headerGradient: {
         paddingTop: 50,
-        paddingBottom: 20,
+        paddingBottom: 15,
         paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',
     },
     backButton: {
-        padding: 8,
+        marginRight: 15,
     },
     headerTitle: {
-        color: 'white',
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: 'bold',
-        marginLeft: 20,
+        color: 'white',
     },
     container: {
         flex: 1,
     },
     contentContainer: {
-        padding: 16,
-        paddingBottom: 40,
+        padding: 20,
     },
     card: {
         backgroundColor: 'white',
-        borderRadius: 16,
+        borderRadius: 15,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
         elevation: 5,
         overflow: 'hidden',
+        marginBottom: 20,
     },
     imageSection: {
-        alignItems: 'center',
-        paddingVertical: 20,
-        backgroundColor: '#f8fafc',
+        height: 250,
+        width: '100%',
+        backgroundColor: '#f0f2f5',
     },
     coverImage: {
-        width: 140,
-        height: 220,
-        borderRadius: 8,
+        width: '100%',
+        height: '100%',
         resizeMode: 'cover',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
     },
     infoSection: {
         padding: 20,
@@ -364,101 +371,119 @@ const styles = StyleSheet.create({
     bookTitle: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#1a202c',
-        marginBottom: 8,
-        textAlign: 'center',
+        color: '#2D3748',
+        marginBottom: 10,
     },
     authorRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 16,
+        marginBottom: 15,
     },
     authorIcon: {
-        marginRight: 6,
+        marginRight: 8,
     },
     authorName: {
         fontSize: 16,
-        color: '#666',
+        color: '#4A5568',
+        fontWeight: '500',
     },
     divider: {
         height: 1,
-        backgroundColor: '#e2e8f0',
-        marginVertical: 16,
+        backgroundColor: '#E2E8F0',
+        marginVertical: 15,
     },
     sectionTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#2d3748',
-        marginBottom: 8,
+        color: '#2D3748',
+        marginBottom: 10,
     },
     descriptionText: {
+        fontSize: 15,
+        lineHeight: 22,
+        color: '#4A5568',
+        marginBottom: 20,
+    },
+    quantityContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F7FAFC',
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 20,
+    },
+    quantityIcon: {
+        marginRight: 10,
+    },
+    quantityText: {
         fontSize: 16,
-        lineHeight: 24,
-        color: '#4a5568',
-        marginBottom: 16,
+        fontWeight: '600',
+        color: '#4A5568',
     },
     actionsSection: {
-        marginTop: 20,
+        marginTop: 10,
+        gap: 12,
     },
     actionButton: {
-        marginBottom: 12,
-        borderRadius: 8,
+        borderRadius: 12,
         overflow: 'hidden',
     },
     disabledButton: {
         opacity: 0.7,
     },
     actionGradient: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        padding: 14,
     },
     actionText: {
         color: 'white',
-        fontWeight: 'bold',
         fontSize: 16,
         marginLeft: 8,
+        fontWeight: '600',
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f5f6fa',
+        backgroundColor: '#f6f7fb',
     },
     loadingText: {
         marginTop: 12,
         fontSize: 16,
-        color: '#4F6CE1',
+        color: '#4A5568',
+        fontWeight: '500',
     },
     errorContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f5f6fa',
+        backgroundColor: '#f6f7fb',
         padding: 20,
     },
     errorText: {
-        fontSize: 16,
-        color: '#4a5568',
+        fontSize: 18,
+        color: '#4A5568',
         textAlign: 'center',
         marginVertical: 20,
+        fontWeight: '500',
     },
     errorButton: {
-        borderRadius: 8,
+        borderRadius: 12,
         overflow: 'hidden',
+        width: '60%',
         marginTop: 20,
     },
     errorButtonGradient: {
-        paddingVertical: 12,
-        paddingHorizontal: 24,
+        paddingVertical: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     errorButtonText: {
         color: 'white',
-        fontWeight: 'bold',
         fontSize: 16,
+        fontWeight: '600',
     },
 });
 

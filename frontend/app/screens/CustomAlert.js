@@ -1,222 +1,227 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Modal, 
-  Animated,
-  Dimensions
+import React, { useEffect } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    Modal,
+    StyleSheet,
+    Animated,
+    Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
-const CustomAlert = ({ 
-  visible, 
-  title, 
-  message, 
-  type = 'success', // 'success', 'error', 'warning', 'info'
-  onClose,
-  buttons = [{ text: 'OK', onPress: () => {} }]
-}) => {
-  const [animation] = useState(new Animated.Value(0));
-  
-  // Définition des couleurs selon le type d'alerte
-  const getColors = () => {
-    switch(type) {
-      case 'success':
-        return {
-          icon: 'checkmark-circle',
-          iconColor: '#10B981',
-          gradientColors: ['#D1FAE5', '#A7F3D0'],
-          textColor: '#065F46'
-        };
-      case 'error':
-        return {
-          icon: 'close-circle',
-          iconColor: '#EF4444',
-          gradientColors: ['#FEE2E2', '#FECACA'],
-          textColor: '#991B1B'
-        };
-      case 'warning':
-        return {
-          icon: 'warning',
-          iconColor: '#F59E0B',
-          gradientColors: ['#FEF3C7', '#FDE68A'],
-          textColor: '#92400E'
-        };
-      case 'info':
-      default:
-        return {
-          icon: 'information-circle',
-          iconColor: '#3B82F6',
-          gradientColors: ['#DBEAFE', '#BFDBFE'],
-          textColor: '#1E40AF'
-        };
+const CustomAlert = ({ visible, title, message, type = 'success', buttons = [], onClose }) => {
+    const slideAnim = new Animated.Value(0);
+    const fadeAnim = new Animated.Value(0);
+
+    useEffect(() => {
+        if (visible) {
+            Animated.parallel([
+                Animated.timing(slideAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true
+                }),
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true
+                })
+            ]).start();
+        } else {
+            Animated.parallel([
+                Animated.timing(slideAnim, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true
+                }),
+                Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true
+                })
+            ]).start();
+        }
+    }, [visible]);
+
+    // Determine icon and colors based on alert type
+    let iconName, backgroundColor, iconColor;
+    switch (type) {
+        case 'success':
+            iconName = 'checkmark-circle';
+            backgroundColor = '#10B981';
+            iconColor = '#ECFDF5';
+            break;
+        case 'error':
+            iconName = 'close-circle';
+            backgroundColor = '#EF4444';
+            iconColor = '#FEF2F2';
+            break;
+        case 'warning':
+            iconName = 'warning';
+            backgroundColor = '#F59E0B';
+            iconColor = '#FFFBEB';
+            break;
+        default:
+            iconName = 'information-circle';
+            backgroundColor = '#3B82F6';
+            iconColor = '#EFF6FF';
     }
-  };
 
-  const colors = getColors();
+    const slideInterpolate = slideAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [Dimensions.get('window').height, 0]
+    });
 
-  useEffect(() => {
-    if (visible) {
-      Animated.timing(animation, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(animation, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible]);
-
-  if (!visible) return null;
-
-  return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="none"
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <Animated.View 
-          style={[
-            styles.alertContainer,
-            {
-              opacity: animation,
-              transform: [
-                {
-                  scale: animation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.9, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
+    return (
+        <Modal
+            transparent={true}
+            visible={visible}
+            animationType="none"
+            onRequestClose={onClose}
         >
-          <LinearGradient
-            colors={colors.gradientColors}
-            style={styles.alertContent}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <View style={styles.iconContainer}>
-              <Ionicons name={colors.icon} size={40} color={colors.iconColor} />
-            </View>
-            
-            <Text style={[styles.title, { color: colors.textColor }]}>{title}</Text>
-            
-            {message ? (
-              <Text style={[styles.message, { color: colors.textColor }]}>{message}</Text>
-            ) : null}
-            
-            <View style={styles.buttonsContainer}>
-              {buttons.map((button, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.button,
-                    index === buttons.length - 1 ? styles.primaryButton : styles.secondaryButton,
-                  ]}
-                  onPress={() => {
-                    if (button.onPress) button.onPress();
-                    onClose();
-                  }}
-                >
-                  <Text
+            <View style={styles.centeredView}>
+                <Animated.View
                     style={[
-                      styles.buttonText,
-                      index === buttons.length - 1 ? styles.primaryButtonText : styles.secondaryButtonText,
+                        styles.modalOverlay,
+                        { opacity: fadeAnim }
                     ]}
-                  >
-                    {button.text}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                >
+                    <TouchableOpacity
+                        style={{ flex: 1 }}
+                        activeOpacity={1}
+                        onPress={onClose}
+                    />
+                </Animated.View>
+
+                <Animated.View
+                    style={[
+                        styles.modalView,
+                        {
+                            transform: [{ translateY: slideInterpolate }]
+                        }
+                    ]}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor }]}>
+                        <Ionicons name={iconName} size={30} color={iconColor} />
+                    </View>
+
+                    <Text style={styles.modalTitle}>{title}</Text>
+                    <Text style={styles.modalMessage}>{message}</Text>
+
+                    <View style={styles.buttonContainer}>
+                        {buttons.length > 0 ? (
+                            buttons.map((button, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={[
+                                        styles.button,
+                                        index === 0 ? { backgroundColor } : styles.secondaryButton,
+                                        index > 0 && { marginTop: 10 }
+                                    ]}
+                                    onPress={() => {
+                                        if (button.onPress) button.onPress();
+                                        onClose();
+                                    }}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.buttonText,
+                                            index !== 0 && styles.secondaryButtonText
+                                        ]}
+                                    >
+                                        {button.text}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))
+                        ) : (
+                            <TouchableOpacity
+                                style={[styles.button, { backgroundColor }]}
+                                onPress={onClose}
+                            >
+                                <Text style={styles.buttonText}>OK</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </Animated.View>
             </View>
-          </LinearGradient>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
+        </Modal>
+    );
 };
 
-const { width } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  alertContainer: {
-    width: width - 60,
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  alertContent: {
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  message: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  buttonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 8,
-    width: '100%',
-  },
-  button: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    marginHorizontal: 6,
-    minWidth: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#3B82F6',
-  },
-  secondaryButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  primaryButtonText: {
-    color: 'white',
-  },
-  secondaryButtonText: {
-    color: '#4B5563',
-  },
+    centeredView: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalView: {
+        width: '85%',
+        backgroundColor: 'white',
+        borderRadius: 15,
+        padding: 25,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    iconContainer: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    modalTitle: {
+        marginBottom: 10,
+        textAlign: 'center',
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1F2937',
+    },
+    modalMessage: {
+        marginBottom: 20,
+        textAlign: 'center',
+        fontSize: 15,
+        color: '#4B5563',
+        lineHeight: 22,
+    },
+    buttonContainer: {
+        width: '100%',
+    },
+    button: {
+        borderRadius: 10,
+        padding: 12,
+        elevation: 2,
+        alignItems: 'center',
+    },
+    buttonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    secondaryButton: {
+        backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    secondaryButtonText: {
+        color: '#4B5563',
+    }
 });
 
 export default CustomAlert;

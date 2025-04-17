@@ -5,16 +5,17 @@ import {
     FlatList, 
     TouchableOpacity, 
     ActivityIndicator, 
-    Alert, 
     StatusBar,
     StyleSheet,
     Image,
     TextInput,
-    Modal,ScrollView
+    Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ScrollView } from 'react-native';
+import CustomAlert from './CustomAlert'; // Assurez-vous que le chemin est correct
 
 const AdminBorrowManagementScreen = ({ navigation }) => {
     const [borrowRequests, setBorrowRequests] = useState([]);
@@ -24,6 +25,16 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedBorrow, setSelectedBorrow] = useState(null);
     const [adminNotes, setAdminNotes] = useState('');
+    const [bookQuantities, setBookQuantities] = useState({}); // Stocke la quantité de chaque livre
+
+    // État pour CustomAlert
+    const [alert, setAlert] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'success',
+        buttons: []
+    });
 
     // Charger toutes les demandes d'emprunt
     const fetchBorrowRequests = async () => {
@@ -31,7 +42,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.1.4:5000/api/borrows/admin/all`, {
+            const response = await fetch(`http://192.168.11.119:5000/api/borrows/admin/all`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -43,10 +54,35 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             
             const data = await response.json();
             setBorrowRequests(data);
+            
+            // Récupérer la quantité de chaque livre référencé
+            const uniqueBookIds = [...new Set(data.map(item => item.book_id))];
+            const quantities = {};
+            
+            for (const bookId of uniqueBookIds) {
+                const bookResponse = await fetch(`http://192.168.11.119:5000/api/books/${bookId}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                
+                if (bookResponse.ok) {
+                    const bookData = await bookResponse.json();
+                    quantities[bookId] = bookData.quantity || 0;
+                }
+            }
+            
+            setBookQuantities(quantities);
             setIsLoading(false);
         } catch (error) {
             console.error("Erreur:", error);
-            Alert.alert('Erreur', 'Impossible de charger les demandes d\'emprunt');
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: 'Impossible de charger les demandes d\'emprunt',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setIsLoading(false);
         }
     };
@@ -93,7 +129,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.1.4:5000/api/borrows/admin/approve`, {
+            const response = await fetch(`http://192.168.11.119:5000/api/borrows/admin/approve`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -110,13 +146,25 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
                 throw new Error(errorData.message || 'Erreur lors de l\'approbation');
             }
             
-            Alert.alert('Succès', 'Demande approuvée avec succès');
+            setAlert({
+                visible: true,
+                title: 'Succès',
+                message: 'Demande approuvée avec succès',
+                type: 'success',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setModalVisible(false);
             setAdminNotes('');
             fetchBorrowRequests();
         } catch (error) {
             console.error("Erreur:", error);
-            Alert.alert('Erreur', error.message || 'Impossible d\'approuver la demande');
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: error.message || 'Impossible d\'approuver la demande',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setIsLoading(false);
         }
     };
@@ -128,7 +176,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.1.4:5000/api/borrows/admin/reject`, {
+            const response = await fetch(`http://192.168.11.119:5000/api/borrows/admin/reject`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -145,13 +193,25 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
                 throw new Error(errorData.message || 'Erreur lors du rejet');
             }
             
-            Alert.alert('Succès', 'Demande rejetée avec succès');
+            setAlert({
+                visible: true,
+                title: 'Succès',
+                message: 'Demande rejetée avec succès',
+                type: 'success',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setModalVisible(false);
             setAdminNotes('');
             fetchBorrowRequests();
         } catch (error) {
             console.error("Erreur:", error);
-            Alert.alert('Erreur', error.message || 'Impossible de rejeter la demande');
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: error.message || 'Impossible de rejeter la demande',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setIsLoading(false);
         }
     };
@@ -159,11 +219,23 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
     const handleConfirmBorrow = async () => {
         if (!selectedBorrow) return;
         
+        // Vérifier la quantité disponible du livre
+        if (bookQuantities[selectedBorrow.book_id] <= 0) {
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: 'Ce livre n\'est plus disponible en stock',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => setModalVisible(false) }]
+            });
+            return;
+        }
+        
         try {
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.1.4:5000/api/borrows/admin/confirm-borrow`, {
+            const response = await fetch(`http://192.168.11.119:5000/api/borrows/admin/confirm-borrow`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -180,13 +252,31 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
                 throw new Error(errorData.message || 'Erreur lors de la confirmation');
             }
             
-            Alert.alert('Succès', 'Emprunt confirmé avec succès');
+            // Mettre à jour la quantité locale du livre
+            setBookQuantities(prev => ({
+                ...prev,
+                [selectedBorrow.book_id]: Math.max(0, prev[selectedBorrow.book_id] - 1)
+            }));
+            
+            setAlert({
+                visible: true,
+                title: 'Succès',
+                message: 'Emprunt confirmé avec succès',
+                type: 'success',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setModalVisible(false);
             setAdminNotes('');
             fetchBorrowRequests();
         } catch (error) {
             console.error("Erreur:", error);
-            Alert.alert('Erreur', error.message || 'Impossible de confirmer l\'emprunt');
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: error.message || 'Impossible de confirmer l\'emprunt',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setIsLoading(false);
         }
     };
@@ -198,7 +288,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.1.4:5000/api/borrows/admin/confirm-return`, {
+            const response = await fetch(`http://192.168.11.119:5000/api/borrows/admin/confirm-return`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -210,18 +300,48 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
                 }),
             });
             
+            // Ajouter ces lignes pour déboguer
+            const responseText = await response.text();
+            console.log("Réponse brute:", responseText);
+            
+            // Essayer de parser manuellement pour éviter l'erreur
+            let errorData;
+            try {
+                errorData = JSON.parse(responseText);
+            } catch (parseError) {
+                console.error("Erreur de parsing:", parseError);
+                throw new Error("Le serveur a renvoyé une réponse non-JSON");
+            }
+            
             if (!response.ok) {
-                const errorData = await response.json();
                 throw new Error(errorData.message || 'Erreur lors de la confirmation du retour');
             }
             
-            Alert.alert('Succès', 'Retour confirmé avec succès');
+            // Mettre à jour la quantité locale du livre
+            setBookQuantities(prev => ({
+                ...prev,
+                [selectedBorrow.book_id]: (prev[selectedBorrow.book_id] || 0) + 1
+            }));
+            
+            setAlert({
+                visible: true,
+                title: 'Succès',
+                message: 'Retour confirmé avec succès',
+                type: 'success',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setModalVisible(false);
             setAdminNotes('');
             fetchBorrowRequests();
         } catch (error) {
             console.error("Erreur:", error);
-            Alert.alert('Erreur', error.message || 'Impossible de confirmer le retour');
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: error.message || 'Impossible de confirmer le retour',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setIsLoading(false);
         }
     };
@@ -285,6 +405,9 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             });
         };
 
+        // Obtenir la quantité disponible du livre
+        const bookQuantity = bookQuantities[item.book_id] || 0;
+
         return (
             <View style={styles.borrowCard}>
                 <View style={styles.borrowHeader}>
@@ -305,12 +428,19 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
                         
                         <View style={styles.userInfoBox}>
                             <Ionicons name="person-outline" size={16} color="#4B5563" />
-                            <Text style={styles.userInfoText}>{item.name}</Text>
+                            <Text style={styles.userInfoText}>{item.username}</Text>
                         </View>
                         
                         <View style={styles.userInfoBox}>
                             <Ionicons name="mail-outline" size={16} color="#4B5563" />
                             <Text style={styles.userInfoText}>{item.email}</Text>
+                        </View>
+                        
+                        <View style={styles.stockInfo}>
+                            <Ionicons name="list-outline" size={16} color={bookQuantity > 0 ? "#38A169" : "#E53E3E"} />
+                            <Text style={[styles.stockText, { color: bookQuantity > 0 ? "#38A169" : "#E53E3E" }]}>
+                                {bookQuantity > 0 ? `En stock (${bookQuantity})` : "Épuisé"}
+                            </Text>
                         </View>
                         
                         <View style={styles.dateRow}>
@@ -365,8 +495,6 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             </View>
         );
     };
-
-    // Filtres pour le statut
     const renderFilterButtons = () => {
         const filters = [
             { id: 'all', label: 'Tous', icon: 'list-outline' },
@@ -380,8 +508,8 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={styles.filterContainer}
                 contentContainerStyle={styles.filterContent}
+                style={styles.filterScrollView}
             >
                 {filters.map(item => (
                     <TouchableOpacity
@@ -410,7 +538,6 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             </ScrollView>
         );
     };
-
     if (isLoading) {
         return (
             <View style={styles.loadingContainer}>
@@ -509,6 +636,21 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
                                     Demandé par: {selectedBorrow.username} ({selectedBorrow.email})
                                 </Text>
                                 
+                                {/* Afficher la quantité disponible */}
+                                <View style={styles.modalQuantityContainer}>
+                                    <Ionicons 
+                                        name="list-outline" 
+                                        size={18} 
+                                        color={bookQuantities[selectedBorrow.book_id] > 0 ? "#38A169" : "#E53E3E"} 
+                                    />
+                                    <Text style={[
+                                        styles.modalQuantityText, 
+                                        { color: bookQuantities[selectedBorrow.book_id] > 0 ? "#38A169" : "#E53E3E" }
+                                    ]}>
+                                        Quantité disponible: {bookQuantities[selectedBorrow.book_id] || 0}
+                                    </Text>
+                                </View>
+                                
                                 <Text style={styles.notesLabel}>Notes administratives:</Text>
                                 <TextInput
                                     style={styles.notesInput}
@@ -543,11 +685,20 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
                                     
                                     {selectedBorrow.status === 'approved' && (
                                         <TouchableOpacity
-                                            style={[styles.actionButton, styles.confirmButton]}
+                                            style={[
+                                                styles.actionButton, 
+                                                styles.confirmButton,
+                                                bookQuantities[selectedBorrow.book_id] <= 0 && styles.disabledButton
+                                            ]}
                                             onPress={handleConfirmBorrow}
+                                            disabled={bookQuantities[selectedBorrow.book_id] <= 0}
                                         >
                                             <Ionicons name="book" size={20} color="white" />
-                                            <Text style={styles.actionButtonText}>Confirmer l'emprunt</Text>
+                                            <Text style={styles.actionButtonText}>
+                                                {bookQuantities[selectedBorrow.book_id] <= 0 
+                                                    ? 'Stock épuisé' 
+                                                    : 'Confirmer l\'emprunt'}
+                                            </Text>
                                         </TouchableOpacity>
                                     )}
                                     
@@ -574,6 +725,16 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
                     </View>
                 </View>
             </Modal>
+
+            {/* CustomAlert component */}
+            <CustomAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                buttons={alert.buttons}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };
@@ -581,18 +742,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     mainContainer: {
         flex: 1,
-        backgroundColor: '#F3F4F6',
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#F3F4F6',
-    },
-    loadingText: {
-        marginTop: 10,
-        fontSize: 16,
-        color: '#4B5563',
+        backgroundColor: '#f6f7fb',
     },
     headerGradient: {
         paddingTop: 50,
@@ -602,179 +752,192 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     backButton: {
-        padding: 5,
+        marginRight: 15,
     },
     headerTitle: {
-        color: 'white',
-        fontSize: 18,
+        fontSize: 22,
         fontWeight: 'bold',
-        marginLeft: 15,
+        color: 'white',
     },
     searchContainer: {
+        backgroundColor: 'white',
+        margin: 15,
+        borderRadius: 10,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'white',
-        marginHorizontal: 16,
-        marginTop: 16,
-        marginBottom: 8,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
+        paddingHorizontal: 15,
+        paddingVertical: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: 3,
         elevation: 2,
     },
     searchIcon: {
-        marginRight: 8,
+        marginRight: 10,
     },
     searchInput: {
         flex: 1,
-        fontSize: 14,
-        color: '#1F2937',
+        fontSize: 16,
+        color: '#4B5563',
     },
     clearButton: {
-        padding: 4,
+        padding: 5,
     },
     filterContainer: {
-        paddingHorizontal: 8,
-        marginBottom: 8,
+        marginBottom: 10,
     },
     filterContent: {
-        paddingVertical: 8,
+        paddingHorizontal: 15,
+        paddingVertical: 5,
     },
     filterButton: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'white',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: 15,
+        paddingVertical: 8,
         borderRadius: 20,
-        marginHorizontal: 4,
+        marginRight: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
-        shadowRadius: 1,
+        shadowRadius: 2,
         elevation: 1,
     },
     filterButtonActive: {
         backgroundColor: '#4F6CE1',
     },
     filterButtonText: {
-        fontSize: 12,
+        fontSize: 14,
         color: '#4B5563',
-        marginLeft: 4,
+        marginLeft: 5,
     },
     filterButtonTextActive: {
         color: 'white',
     },
     listContainer: {
-        padding: 16,
+        padding: 15,
     },
     borrowCard: {
         backgroundColor: 'white',
         borderRadius: 12,
-        marginBottom: 16,
-        padding: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 3,
+        marginBottom: 15,
+        overflow: 'hidden',
     },
     borrowHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        backgroundColor: '#F7FAFC',
+        padding: 15,
     },
     bookTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
-        color: '#1F2937',
+        fontWeight: '700',
+        color: '#2D3748',
         flex: 1,
     },
     statusBadge: {
         flexDirection: 'row',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 16,
         alignItems: 'center',
+        borderRadius: 15,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        marginLeft: 10,
     },
     statusText: {
+        color: 'white',
         fontSize: 12,
         fontWeight: '600',
-        color: 'white',
     },
     borrowContent: {
         flexDirection: 'row',
-        marginBottom: 12,
+        padding: 15,
     },
     coverThumbnail: {
         width: 80,
         height: 120,
-        borderRadius: 8,
-        marginRight: 12,
+        borderRadius: 5,
+        backgroundColor: '#E2E8F0',
     },
     borrowInfo: {
         flex: 1,
+        marginLeft: 15,
     },
     authorName: {
         fontSize: 14,
-        color: '#4B5563',
+        color: '#4A5568',
+        fontWeight: '500',
         marginBottom: 8,
     },
     userInfoBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 6,
+        marginBottom: 8,
     },
     userInfoText: {
-        marginLeft: 6,
-        fontSize: 13,
+        fontSize: 14,
         color: '#4B5563',
+        marginLeft: 8,
     },
     dateRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 4,
+        marginTop: 4,
     },
     dateText: {
-        marginLeft: 6,
-        fontSize: 12,
-        color: '#6B7280',
+        fontSize: 13,
+        color: '#718096',
+        marginLeft: 8,
     },
     notesContainer: {
-        marginTop: 6,
-        padding: 8,
-        backgroundColor: '#F9FAFB',
-        borderRadius: 6,
+        marginTop: 10,
+        padding: 10,
+        backgroundColor: '#F7FAFC',
+        borderRadius: 8,
     },
     notesLabel: {
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: '600',
-        color: '#4B5563',
-        marginBottom: 4,
+        color: '#4A5568',
+        marginBottom: 5,
     },
     notesText: {
-        fontSize: 12,
-        color: '#6B7280',
+        fontSize: 13,
+        color: '#718096',
+        fontStyle: 'italic',
     },
     manageButton: {
-        marginTop: 8,
+        borderRadius: 0,
+        overflow: 'hidden',
     },
     manageButtonGradient: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 10,
-        borderRadius: 8,
+        padding: 15,
     },
     manageButtonText: {
         color: 'white',
-        marginLeft: 8,
+        fontSize: 15,
         fontWeight: '600',
+        marginLeft: 8,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#4A5568',
     },
     emptyContainer: {
         flex: 1,
@@ -785,16 +948,16 @@ const styles = StyleSheet.create({
     emptyText: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#4B5563',
+        color: '#4A5568',
         marginTop: 20,
     },
     emptySubText: {
         fontSize: 14,
-        color: '#6B7280',
+        color: '#718096',
         textAlign: 'center',
         marginTop: 10,
+        marginBottom: 20,
     },
-    // Modal styles
     centeredView: {
         flex: 1,
         justifyContent: 'center',
@@ -802,10 +965,10 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
     modalView: {
-        width: '90%',
         backgroundColor: 'white',
-        borderRadius: 12,
-        overflow: 'hidden',
+        borderRadius: 15,
+        width: '90%',
+        maxHeight: '80%',
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
@@ -814,51 +977,66 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
+        overflow: 'hidden',
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
+        backgroundColor: '#F7FAFC',
+        paddingHorizontal:
+        20,
+        paddingVertical: 15,
         borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
-        backgroundColor: '#F9FAFB',
+        borderBottomColor: '#E2E8F0',
     },
     modalTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#1F2937',
-    },
-    closeButton: {
-        padding: 4,
-    },
-    modalContent: {
-        padding: 16,
-    },
-    modalBookTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#1F2937',
-        marginBottom: 8,
+        color: '#2D3748',
+    },
+    closeButton: {
+        padding: 5,
+    },
+    modalContent: {
+        padding: 20,
+    },
+    modalBookTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#2D3748',
+        marginBottom: 5,
     },
     modalUserInfo: {
         fontSize: 14,
-        color: '#4B5563',
-        marginBottom: 16,
+        color: '#4A5568',
+        marginBottom: 15,
+    },
+    modalQuantityContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F7FAFC',
+        padding: 10,
+        borderRadius: 8,
+        marginBottom: 15,
+    },
+    modalQuantityText: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 10,
     },
     notesInput: {
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
+        backgroundColor: '#F7FAFC',
         borderRadius: 8,
         padding: 12,
-        marginBottom: 16,
-        color: '#1F2937',
-        backgroundColor: '#F9FAFB',
+        height: 100,
         textAlignVertical: 'top',
+        color: '#4A5568',
+        fontSize: 14,
+        marginBottom: 20,
     },
     modalActions: {
-        flexDirection: 'column',
-        gap: 8,
+        gap: 10,
     },
     actionButton: {
         flexDirection: 'row',
@@ -866,7 +1044,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         padding: 12,
         borderRadius: 8,
-        marginBottom: 8,
+    },
+    actionButtonText: {
+        color: 'white',
+        fontSize: 15,
+        fontWeight: '600',
+        marginLeft: 8,
     },
     approveButton: {
         backgroundColor: '#10B981',
@@ -878,17 +1061,61 @@ const styles = StyleSheet.create({
         backgroundColor: '#3B82F6',
     },
     returnButton: {
-        backgroundColor: '#6366F1',
+        backgroundColor: '#DD6B20',
     },
     cancelButton: {
         backgroundColor: '#6B7280',
     },
-    actionButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
+    disabledButton: {
+        opacity: 0.6,
+    },
+    stockInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    stockText: {
+        fontSize: 14,
+        fontWeight: '600',
         marginLeft: 8,
+    },
+    filterContainer: {
+        marginBottom: 10,
+        paddingHorizontal: 15,
+    },
+    filterContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    filterScrollView: {
+        flexGrow: 0, // Empêche le ScrollView de prendre tout l'espace
+    },
+    filterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        paddingHorizontal: 15,
+        paddingVertical: 8,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 1,
+        minWidth: 100, // Largeur minimale
+    },
+    filterButtonText: {
+        fontSize: 14,
+        marginLeft: 5,
+        color: '#4B5563',
+    },
+    filterButtonActive: {
+        backgroundColor: '#4F6CE1',
+    },
+    filterButtonTextActive: {
+        color: 'white',
     }
 });
-
 
 export default AdminBorrowManagementScreen;

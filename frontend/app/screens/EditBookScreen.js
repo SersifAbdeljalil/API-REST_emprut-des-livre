@@ -14,7 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import CustomAlert from './CustomAlert'; // Assurez-vous que le chemin est correct selon votre structure de projet
+import CustomAlert from './CustomAlert'; 
 
 const EditBookScreen = ({ route, navigation }) => {
     const { bookId } = route.params;
@@ -28,7 +28,7 @@ const EditBookScreen = ({ route, navigation }) => {
     const [originalImage, setOriginalImage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    
+    const [quantity, setQuantity] = useState('1'); // Valeur par défaut: 1
     // États pour CustomAlert
     const [alertVisible, setAlertVisible] = useState(false);
     const [alertProps, setAlertProps] = useState({
@@ -56,7 +56,7 @@ const EditBookScreen = ({ route, navigation }) => {
                     return;
                 }
 
-                const response = await fetch(`http://192.168.1.4:5000/api/books/${bookId}`, {
+                const response = await fetch(`http://192.168.11.119:5000/api/books/${bookId}`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -116,7 +116,7 @@ const EditBookScreen = ({ route, navigation }) => {
         formData.append('publication_date', publicationDate);
         formData.append('genre', genre);
         formData.append('location_era', locationEra);
-
+        formData.append('quantity', quantity); // Ajouter la quantité au FormData
         // Vérifier si l'image a été modifiée
         if (image && image !== originalImage) {
             const imageName = image.split('/').pop();
@@ -137,7 +137,7 @@ const EditBookScreen = ({ route, navigation }) => {
                 return;
             }
 
-            const response = await fetch(`http://192.168.1.4:5000/api/books/${bookId}`, {
+            const response = await fetch(`http://192.168.11.119:5000/api/books/${bookId}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -238,7 +238,20 @@ const EditBookScreen = ({ route, navigation }) => {
                                 />
                             </View>
                         </View>
-
+                        <View style={styles.inputGroup}>
+    <Text style={styles.label}>Quantité</Text>
+    <View style={styles.inputContainer}>
+        <Ionicons name="list-outline" size={20} color="#666" style={styles.inputIcon} />
+        <TextInput
+            style={styles.input}
+            value={quantity}
+            onChangeText={setQuantity}
+            placeholder="Quantité disponible"
+            placeholderTextColor="#999"
+            keyboardType="numeric"
+        />
+    </View>
+</View>
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Date de publication</Text>
                             <View style={styles.inputContainer}>

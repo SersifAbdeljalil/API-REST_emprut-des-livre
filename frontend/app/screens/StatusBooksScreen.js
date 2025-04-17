@@ -15,7 +15,7 @@ const StatusBooksScreen = ({ navigation }) => {
             const userId = await AsyncStorage.getItem('userId');
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.1.4:5000/api/borrows/user/${userId}`, {
+            const response = await fetch(`http://192.168.11.119:5000/api/borrows/user/${userId}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -53,7 +53,7 @@ const StatusBooksScreen = ({ navigation }) => {
             const userId = await AsyncStorage.getItem('userId');
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.1.4:5000/api/borrows/cancel`, {
+            const response = await fetch(`http://192.168.11.119:5000/api/borrows/cancel`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ const StatusBooksScreen = ({ navigation }) => {
             const userId = await AsyncStorage.getItem('userId');
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.1.4:5000/api/borrows/return`, {
+            const response = await fetch(`http://192.168.11.119:5000/api/borrows/return`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ const StatusBooksScreen = ({ navigation }) => {
                 });
             } else {
                 // Si l'URL du PDF n'est pas disponible, nous construisons l'URL avec l'endpoint correct
-                const pdfUrl = `http://192.168.1.4:5000/api/books/${item.book_id}/download-pdf`;
+                const pdfUrl = `http://192.168.11.119:5000/api/books/${item.book_id}/download-pdf`;
                 console.log("URL construite:", pdfUrl);
                 navigation.navigate('PDFViewerScreen', {
                     pdfUrl: pdfUrl,

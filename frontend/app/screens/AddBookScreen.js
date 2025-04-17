@@ -15,7 +15,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import CustomAlert from './path/to/CustomAlert'; // Adjust the path as needed
+import CustomAlert from './CustomAlert'; // Adjust the path as needed
 
 const AddBookScreen = ({ navigation }) => {
     const [title, setTitle] = useState('');
@@ -34,6 +34,7 @@ const AddBookScreen = ({ navigation }) => {
         type: 'success',
         buttons: []
     });
+    const [quantity, setQuantity] = useState('1'); // Valeur par défaut: 1
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -142,7 +143,7 @@ const AddBookScreen = ({ navigation }) => {
         formData.append('publication_date', publicationDate);
         formData.append('genre', genre);
         formData.append('location_era', locationEra);
-
+        formData.append('quantity', quantity);
         if (image) {
             const imageName = image.split('/').pop();
             const imageType = 'image/' + (imageName.endsWith('png') ? 'png' : 'jpeg');
@@ -178,7 +179,7 @@ const AddBookScreen = ({ navigation }) => {
                 return;
             }
 
-            const response = await fetch('http://192.168.1.4:5000/api/books', {
+            const response = await fetch('http://192.168.11.119:5000/api/books', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -291,7 +292,20 @@ const AddBookScreen = ({ navigation }) => {
                                 />
                             </View>
                         </View>
-
+                        <View style={styles.inputGroup}>
+    <Text style={styles.label}>Quantité</Text>
+    <View style={styles.inputContainer}>
+        <Ionicons name="list-outline" size={20} color="#666" style={styles.inputIcon} />
+        <TextInput
+            style={styles.input}
+            value={quantity}
+            onChangeText={setQuantity}
+            placeholder="Quantité disponible"
+            placeholderTextColor="#999"
+            keyboardType="numeric"
+        />
+    </View>
+</View>
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Date de publication</Text>
                             <View style={styles.inputContainer}>

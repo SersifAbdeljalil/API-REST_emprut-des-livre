@@ -45,7 +45,7 @@ export default function Index() {
 
     return (
         <Stack.Navigator
-            initialRouteName={userToken ? (userRole === "admin" ? "AdminTabs" : "UserTabs") : "Login"}
+            initialRouteName="Login"
             screenOptions={{
                 headerStyle: {
                     backgroundColor: '#2196F3',

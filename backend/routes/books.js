@@ -85,7 +85,7 @@ router.get("/:id", (req, res) => {
 
 // Ajouter un livre avec image et PDF
 router.post("/", uploadFields, (req, res) => {
-    const { title, author, description, publication_date, genre, location_era } = req.body;
+    const { title, author, description, publication_date, genre, location_era, quantity } = req.body;
 
     // Vérification des erreurs liées à l'upload des fichiers
     if (req.files && req.files.image && req.files.image.length === 0) {
@@ -98,10 +98,13 @@ router.post("/", uploadFields, (req, res) => {
     // Récupérer les chemins des fichiers uploadés
     const imageUrl = req.files.image ? req.files.image[0].path : null;
     const pdfUrl = req.files.pdf ? req.files.pdf[0].path : null;
-
-    const query = "INSERT INTO books (title, author, description, image_url, pdf_url, publication_date, genre, location_era) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     
-    db.query(query, [title, author, description, imageUrl, pdfUrl, publication_date, genre, location_era], (err, result) => {
+    // Valider et convertir la quantité en nombre entier
+    const bookQuantity = parseInt(quantity) || 1; // Valeur par défaut: 1 si non spécifié ou invalide
+
+    const query = "INSERT INTO books (title, author, description, image_url, pdf_url, publication_date, genre, location_era, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    db.query(query, [title, author, description, imageUrl, pdfUrl, publication_date, genre, location_era, bookQuantity], (err, result) => {
         if (err) {
             console.error("Erreur lors de l'ajout du livre:", err);
             return res.status(500).json({ message: "Erreur lors de l'ajout du livre" });
@@ -112,7 +115,7 @@ router.post("/", uploadFields, (req, res) => {
 
 // Modifier un livre
 router.put("/:id", uploadFields, (req, res) => {
-    const { title, author, description, publication_date, genre, location_era } = req.body;
+    const { title, author, description, publication_date, genre, location_era, quantity } = req.body;
     
     // Commencer par récupérer le livre existant pour conserver les URLs existantes si pas de nouveaux fichiers
     db.query("SELECT image_url, pdf_url FROM books WHERE id = ?", [req.params.id], (err, results) => {
@@ -131,9 +134,12 @@ router.put("/:id", uploadFields, (req, res) => {
         const imageUrl = req.files.image ? req.files.image[0].path : existingBook.image_url;
         const pdfUrl = req.files.pdf ? req.files.pdf[0].path : existingBook.pdf_url;
         
-        const query = "UPDATE books SET title = ?, author = ?, description = ?, image_url = ?, pdf_url = ?, publication_date = ?, genre = ?, location_era = ? WHERE id = ?";
+        // Valider et convertir la quantité en nombre entier
+        const bookQuantity = parseInt(quantity) || 1; // Valeur par défaut: 1 si non spécifié ou invalide
         
-        db.query(query, [title, author, description, imageUrl, pdfUrl, publication_date, genre, location_era, req.params.id], (err, result) => {
+        const query = "UPDATE books SET title = ?, author = ?, description = ?, image_url = ?, pdf_url = ?, publication_date = ?, genre = ?, location_era = ?, quantity = ? WHERE id = ?";
+        
+        db.query(query, [title, author, description, imageUrl, pdfUrl, publication_date, genre, location_era, bookQuantity, req.params.id], (err, result) => {
             if (err) {
                 console.error("Erreur lors de la modification du livre:", err);
                 return res.status(500).json({ message: "Erreur lors de la modification du livre" });

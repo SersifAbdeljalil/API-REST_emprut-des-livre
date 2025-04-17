@@ -31,7 +31,7 @@ const UserHomeScreen = ({ navigation }) => {
                 return;
             }
             
-            const response = await fetch('http://192.168.1.4:5000/api/books', {
+            const response = await fetch('http://192.168.11.119:5000/api/books', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -75,30 +75,30 @@ const UserHomeScreen = ({ navigation }) => {
         }
     }, [searchQuery, books]);
 
-    // const handleLogout = async () => {
-    //     Alert.alert(
-    //         'Déconnexion',
-    //         'Êtes-vous sûr de vouloir vous déconnecter ?',
-    //         [
-    //             {
-    //                 text: 'Annuler',
-    //                 style: 'cancel',
-    //             },
-    //             {
-    //                 text: 'Déconnecter',
-    //                 onPress: async () => {
-    //                     try {
-    //                         await AsyncStorage.removeItem('token');
-    //                         navigation.replace('Login');
-    //                     } catch (error) {
-    //                         Alert.alert('Erreur', 'Problème lors de la déconnexion');
-    //                     }
-    //                 },
-    //             },
-    //         ],
-    //         { cancelable: true }
-    //     );
-    // };
+    const handleLogout = async () => {
+        Alert.alert(
+            'Déconnexion',
+            'Êtes-vous sûr de vouloir vous déconnecter ?',
+            [
+                {
+                    text: 'Annuler',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Déconnecter',
+                    onPress: async () => {
+                        try {
+                            await AsyncStorage.removeItem('token');
+                            navigation.replace('Login');
+                        } catch (error) {
+                            Alert.alert('Erreur', 'Problème lors de la déconnexion');
+                        }
+                    },
+                },
+            ],
+            { cancelable: true }
+        );
+    };
 
     const renderBookItem = ({ item }) => (
         <TouchableOpacity 
@@ -108,7 +108,7 @@ const UserHomeScreen = ({ navigation }) => {
         >
             <View style={styles.imageContainer}>
                 <Image
-                    source={{ uri: item.image_url ? `http://192.168.1.4:5000/${item.image_url}` : 'https://via.placeholder.com/150' }}
+                    source={{ uri: item.image_url ? `http://192.168.11.119:5000/${item.image_url}` : 'https://via.placeholder.com/150' }}
                     style={styles.bookImage}
                     resizeMode="cover"
                 />

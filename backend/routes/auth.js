@@ -143,7 +143,7 @@ router.post("/login", (req, res) => {
       const token = jwt.sign(
         { id: user.id, role: user.role },
         process.env.JWT_SECRET,
-        { expiresIn: "7d" }
+        { expiresIn: "1h" }
       );
 
       // Format de l'URL complète pour l'image de profil
@@ -151,7 +151,6 @@ router.post("/login", (req, res) => {
       const profileImage = user.profile_image.startsWith("http") 
         ? user.profile_image 
         : `${baseUrl}/uploads/profiles/${user.profile_image}`;
-
       res.json({
         message: "Connexion réussie",
         token,

@@ -9,7 +9,8 @@ import {
     Alert,
     RefreshControl,
     ActivityIndicator,
-    StatusBar
+    StatusBar,
+    TextInput
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const HomeScreen = ({ navigation }) => {
     const [books, setBooks] = useState([]);
+    const [filteredBooks, setFilteredBooks] = useState([]);
+    const [searchText, setSearchText] = useState('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -28,7 +31,7 @@ const HomeScreen = ({ navigation }) => {
                 return;
             }
             
-            const response = await fetch('http://192.168.1.4:5000/api/books', {
+            const response = await fetch('http://192.168.11.119:5000/api/books', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -40,6 +43,7 @@ const HomeScreen = ({ navigation }) => {
             
             const data = await response.json();
             setBooks(data);
+            setFilteredBooks(data);
         } catch (error) {
             console.error('Erreur:', error);
             Alert.alert('Erreur', 'Impossible de charger les livres');
@@ -58,6 +62,20 @@ const HomeScreen = ({ navigation }) => {
 
         return unsubscribe;
     }, [navigation]);
+
+    // Fonction pour filtrer les livres en fonction du texte de recherche
+    const handleSearch = (text) => {
+        setSearchText(text);
+        if (text.trim() === '') {
+            setFilteredBooks(books);
+        } else {
+            const filtered = books.filter(book => 
+                book.title.toLowerCase().includes(text.toLowerCase()) || 
+                book.author.toLowerCase().includes(text.toLowerCase())
+            );
+            setFilteredBooks(filtered);
+        }
+    };
 
     const handleLogout = async () => {
         Alert.alert(
@@ -92,7 +110,7 @@ const HomeScreen = ({ navigation }) => {
         >
             <View style={styles.imageContainer}>
                 <Image
-                    source={{ uri: item.image_url ? `http://192.168.1.4:5000/${item.image_url}` : 'https://via.placeholder.com/150' }}
+                    source={{ uri: item.image_url ? `http://192.168.11.119:5000/${item.image_url}` : 'https://via.placeholder.com/150' }}
                     style={styles.bookImage}
                     resizeMode="cover"
                 />
@@ -135,9 +153,29 @@ const HomeScreen = ({ navigation }) => {
                 </TouchableOpacity>
             </LinearGradient>
 
+            {/* Barre de recherche */}
+            <View style={styles.searchContainer}>
+                <View style={styles.searchBar}>
+                    <Ionicons name="search" size={20} color="#A0AEC0" style={styles.searchIcon} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Rechercher un livre ou un auteur"
+                        placeholderTextColor="#A0AEC0"
+                        value={searchText}
+                        onChangeText={handleSearch}
+                        clearButtonMode="while-editing"
+                    />
+                    {searchText.length > 0 && (
+                        <TouchableOpacity onPress={() => handleSearch('')} style={styles.clearButton}>
+                            <Ionicons name="close-circle" size={18} color="#A0AEC0" />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+
             <View style={styles.container}>
                 <FlatList
-                    data={books}
+                    data={filteredBooks}
                     renderItem={renderBookItem}
                     keyExtractor={item => item.id.toString()}
                     contentContainerStyle={styles.bookList}
@@ -156,11 +194,19 @@ const HomeScreen = ({ navigation }) => {
                     ListEmptyComponent={() => (
                         <View style={styles.emptyContainer}>
                             <View style={styles.emptyIconContainer}>
-                                <Ionicons name="book-outline" size={60} color="#A0AEC0" />
+                                <Ionicons 
+                                    name={searchText.length > 0 ? "search-outline" : "book-outline"} 
+                                    size={60} 
+                                    color="#A0AEC0" 
+                                />
                             </View>
-                            <Text style={styles.emptyTitle}>Aucun livre trouvé</Text>
+                            <Text style={styles.emptyTitle}>
+                                {searchText.length > 0 ? "Aucun résultat trouvé" : "Aucun livre trouvé"}
+                            </Text>
                             <Text style={styles.emptyText}>
-                                Votre bibliothèque est vide. Ajoutez des livres en cliquant sur le bouton ci-dessous.
+                                {searchText.length > 0 
+                                    ? `Aucun livre ne correspond à "${searchText}"`
+                                    : "Votre bibliothèque est vide. Ajoutez des livres en cliquant sur le bouton ci-dessous."}
                             </Text>
                         </View>
                     )}
@@ -207,6 +253,38 @@ const styles = StyleSheet.create({
     },
     logoutButton: {
         padding: 8,
+    },
+    searchContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: '#f6f7fb',
+    },
+    searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderColor: '#E2E8F0',
+        borderWidth: 1,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+    },
+    searchIcon: {
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+        color: '#2D3748',
+        paddingVertical: 2,
+    },
+    clearButton: {
+        padding: 4,
     },
     container: {
         flex: 1,

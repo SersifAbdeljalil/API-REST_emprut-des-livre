@@ -24,7 +24,7 @@ const ProfileUserScreen = ({ navigation }) => {
       }
       
       // Appel API pour récupérer les données utilisateur
-      const response = await fetch('http://192.168.1.4:5000/api/auth/profile', {
+      const response = await fetch('http://192.168.11.119:5000/api/auth/profile', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -110,7 +110,7 @@ const ProfileUserScreen = ({ navigation }) => {
         const imageUrl = result.assets[0].uri;
         
         // Appel API pour mettre à jour l'image de profil
-        const response = await fetch('http://192.168.1.4:5000/api/auth/users/profile/image', {
+        const response = await fetch('http://192.168.11.119:5000/api/auth/users/profile/image', {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
