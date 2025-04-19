@@ -30,7 +30,7 @@ const PDFViewerScreen = ({ route, navigation }) => {
             let fullUrl = pdfUrl;
             if (!fullUrl) {
                 // Utiliser l'endpoint correct qui existe sur le backend
-                fullUrl = `http://192.168.11.119:5000/api/books/${bookId}/download-pdf`;
+                fullUrl = `http://192.168.1.172:5000/api/books/${bookId}/download-pdf`;
             }
             
             if (token && !fullUrl.includes('token=')) {

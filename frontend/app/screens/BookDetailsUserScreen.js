@@ -6,13 +6,13 @@ import {
     ScrollView, 
     TouchableOpacity, 
     ActivityIndicator, 
-    Alert, 
     StatusBar,
     StyleSheet
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CustomAlert from './CustomAlert'; // Import du composant CustomAlert
 
 const BookDetailsScreenUser = ({ route, navigation }) => {
     // Vérifier si route.params existe et extraire bookId en toute sécurité
@@ -20,6 +20,15 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
     const [book, setBook] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [borrowStatus, setBorrowStatus] = useState(null);
+    
+    // Ajout de l'état pour CustomAlert
+    const [alert, setAlert] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'success',
+        buttons: []
+    });
     
     useEffect(() => {
         if (!bookId) {
@@ -30,7 +39,7 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
         const fetchBookDetails = async () => {
             try {
                 setIsLoading(true);
-                const response = await fetch(`http://192.168.11.119:5000/api/books/${bookId}`, {
+                const response = await fetch(`http://192.168.1.172:5000/api/books/${bookId}`, {
                     headers: {
                         Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
                     },
@@ -39,12 +48,12 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
 
                 const updatedBook = {
                     ...data,
-                    imageUrl: `http://192.168.11.119:5000/${data.image_url.replace("\\", "/")}`,
-                    pdfUrl: data.pdf_url ? `http://192.168.11.119:5000/${data.pdf_url.replace("\\", "/")}` : null,
+                    imageUrl: `http://192.168.1.172:5000/${data.image_url.replace("\\", "/")}`,
+                    pdfUrl: data.pdf_url ? `http://192.168.1.172:5000/${data.pdf_url.replace("\\", "/")}` : null,
                 };
                 setBook(updatedBook);
                 const userId = await AsyncStorage.getItem('userId');
-                const borrowResponse = await fetch(`http://192.168.11.119:5000/api/borrows/status?bookId=${bookId}&userId=${userId}`, {
+                const borrowResponse = await fetch(`http://192.168.1.172:5000/api/borrows/status?bookId=${bookId}&userId=${userId}`, {
                     headers: {
                         Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
                     },
@@ -58,7 +67,14 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                 setIsLoading(false);
             } catch (error) {
                 console.error("Erreur lors du chargement:", error);
-                Alert.alert('Erreur', 'Impossible de charger les détails du livre');
+                // Remplacer Alert.alert par CustomAlert
+                setAlert({
+                    visible: true,
+                    title: 'Erreur',
+                    message: 'Impossible de charger les détails du livre',
+                    type: 'error',
+                    buttons: [{ text: 'OK', onPress: () => {} }]
+                });
                 setIsLoading(false);
             }
         };
@@ -67,13 +83,27 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
 
     const handleBorrowRequest = async () => {
         if (!bookId) {
-            Alert.alert('Erreur', 'Identifiant du livre manquant');
+            // Remplacer Alert.alert par CustomAlert
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: 'Identifiant du livre manquant',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             return;
         }
 
         // Vérifier si le livre est disponible en quantité suffisante
         if (book.quantity <= 0 && borrowStatus !== 'borrowed') {
-            Alert.alert('Livre indisponible', 'Ce livre n\'est actuellement pas disponible en stock.');
+            // Remplacer Alert.alert par CustomAlert
+            setAlert({
+                visible: true,
+                title: 'Livre indisponible',
+                message: 'Ce livre n\'est actuellement pas disponible en stock.',
+                type: 'warning',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             return;
         }
     
@@ -81,7 +111,14 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
             setIsLoading(true);
             const userId = await AsyncStorage.getItem('userId');
             if (!userId) {
-                Alert.alert('Erreur', 'Utilisateur non identifié');
+                // Remplacer Alert.alert par CustomAlert
+                setAlert({
+                    visible: true,
+                    title: 'Erreur',
+                    message: 'Utilisateur non identifié',
+                    type: 'error',
+                    buttons: [{ text: 'OK', onPress: () => {} }]
+                });
                 setIsLoading(false);
                 return;
             }
@@ -89,7 +126,7 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
             console.log("User ID from AsyncStorage:", userId);
     
             if (borrowStatus === 'borrowed') {
-                const response = await fetch(`http://192.168.11.119:5000/api/borrows/return`, {
+                const response = await fetch(`http://192.168.1.172:5000/api/borrows/return`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -102,7 +139,14 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                 });
     
                 if (response.ok) {
-                    Alert.alert('Succès', 'Livre retourné avec succès');
+                    // Remplacer Alert.alert par CustomAlert
+                    setAlert({
+                        visible: true,
+                        title: 'Succès',
+                        message: 'Livre retourné avec succès',
+                        type: 'success',
+                        buttons: [{ text: 'OK', onPress: () => {} }]
+                    });
                     setBorrowStatus(null);
                     // Mettre à jour la quantité affichée localement
                     setBook(prev => ({
@@ -111,11 +155,18 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                     }));
                 } else {
                     const errorData = await response.json();
-                    Alert.alert('Erreur', errorData.message || 'Impossible de retourner le livre');
+                    // Remplacer Alert.alert par CustomAlert
+                    setAlert({
+                        visible: true,
+                        title: 'Erreur',
+                        message: errorData.message || 'Impossible de retourner le livre',
+                        type: 'error',
+                        buttons: [{ text: 'OK', onPress: () => {} }]
+                    });
                 }
             } else {
                 // Emprunter un livre
-                const response = await fetch(`http://192.168.11.119:5000/api/borrows/request`, {
+                const response = await fetch(`http://192.168.1.172:5000/api/borrows/request`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -128,18 +179,39 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                 });
     
                 if (response.ok) {
-                    Alert.alert('Succès', 'Demande d\'emprunt envoyée avec succès');
+                    // Remplacer Alert.alert par CustomAlert
+                    setAlert({
+                        visible: true,
+                        title: 'Succès',
+                        message: 'Demande d\'emprunt envoyée avec succès',
+                        type: 'success',
+                        buttons: [{ text: 'OK', onPress: () => {} }]
+                    });
                     setBorrowStatus('pending');
                 } else {
                     const errorData = await response.json();
-                    Alert.alert('Erreur', errorData.message || 'Impossible d\'envoyer la demande d\'emprunt');
+                    // Remplacer Alert.alert par CustomAlert
+                    setAlert({
+                        visible: true,
+                        title: 'Erreur',
+                        message: errorData.message || 'Impossible d\'envoyer la demande d\'emprunt',
+                        type: 'error',
+                        buttons: [{ text: 'OK', onPress: () => {} }]
+                    });
                 }
             }
             
             setIsLoading(false);
         } catch (error) {
             console.error("Erreur lors de la requête d'emprunt:", error);
-            Alert.alert('Erreur', 'Une erreur est survenue lors de la demande');
+            // Remplacer Alert.alert par CustomAlert
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: 'Une erreur est survenue lors de la demande',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setIsLoading(false);
         }
     };
@@ -314,6 +386,16 @@ const BookDetailsScreenUser = ({ route, navigation }) => {
                     </View>
                 </View>
             </ScrollView>
+            
+            {/* Composant CustomAlert */}
+            <CustomAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                buttons={alert.buttons}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };
@@ -331,34 +413,32 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     backButton: {
-        marginRight: 15,
+        padding: 5,
     },
     headerTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
         color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginLeft: 15,
     },
     container: {
         flex: 1,
     },
     contentContainer: {
-        padding: 20,
+        padding: 16,
     },
     card: {
         backgroundColor: 'white',
         borderRadius: 15,
+        overflow: 'hidden',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 5,
-        overflow: 'hidden',
-        marginBottom: 20,
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 4,
     },
     imageSection: {
-        height: 250,
-        width: '100%',
-        backgroundColor: '#f0f2f5',
+        height: 240,
     },
     coverImage: {
         width: '100%',
@@ -383,7 +463,7 @@ const styles = StyleSheet.create({
         marginRight: 8,
     },
     authorName: {
-        fontSize: 16,
+        fontSize: 18,
         color: '#4A5568',
         fontWeight: '500',
     },
@@ -396,37 +476,34 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: '#2D3748',
-        marginBottom: 10,
+        marginTop: 20,
+        marginBottom: 8,
     },
     descriptionText: {
-        fontSize: 15,
-        lineHeight: 22,
+        fontSize: 16,
         color: '#4A5568',
-        marginBottom: 20,
+        lineHeight: 24,
     },
     quantityContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F7FAFC',
-        borderRadius: 10,
-        padding: 12,
-        marginBottom: 20,
+        marginTop: 5,
     },
     quantityIcon: {
-        marginRight: 10,
+        marginRight: 8,
     },
     quantityText: {
         fontSize: 16,
-        fontWeight: '600',
         color: '#4A5568',
+        fontWeight: '500',
     },
     actionsSection: {
-        marginTop: 10,
-        gap: 12,
+        marginTop: 24,
     },
     actionButton: {
         borderRadius: 12,
         overflow: 'hidden',
+        marginBottom: 16,
     },
     disabledButton: {
         opacity: 0.7,
@@ -435,13 +512,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 14,
+        paddingVertical: 16,
     },
     actionText: {
         color: 'white',
         fontSize: 16,
-        marginLeft: 8,
-        fontWeight: '600',
+        fontWeight: 'bold',
+        marginLeft: 10,
     },
     loadingContainer: {
         flex: 1,
@@ -450,41 +527,40 @@ const styles = StyleSheet.create({
         backgroundColor: '#f6f7fb',
     },
     loadingText: {
-        marginTop: 12,
+        marginTop: 10,
         fontSize: 16,
         color: '#4A5568',
-        fontWeight: '500',
     },
     errorContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f6f7fb',
         padding: 20,
+        backgroundColor: '#f6f7fb',
     },
     errorText: {
         fontSize: 18,
-        color: '#4A5568',
+        fontWeight: 'bold',
+        color: '#2D3748',
+        marginTop: 16,
+        marginBottom: 24,
         textAlign: 'center',
-        marginVertical: 20,
-        fontWeight: '500',
     },
     errorButton: {
         borderRadius: 12,
         overflow: 'hidden',
-        width: '60%',
-        marginTop: 20,
+        width: '50%',
     },
     errorButtonGradient: {
-        paddingVertical: 14,
+        paddingVertical: 12,
         alignItems: 'center',
         justifyContent: 'center',
     },
     errorButtonText: {
         color: 'white',
         fontSize: 16,
-        fontWeight: '600',
-    },
+        fontWeight: 'bold',
+    }
 });
 
 export default BookDetailsScreenUser;

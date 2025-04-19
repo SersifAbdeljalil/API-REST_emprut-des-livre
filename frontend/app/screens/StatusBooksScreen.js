@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, Image, Alert, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, Image, ActivityIndicator, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CustomAlert from './CustomAlert'; // Import du composant CustomAlert
 
 const StatusBooksScreen = ({ navigation }) => {
     const [borrowRequests, setBorrowRequests] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    
+    // Ajout de l'état pour CustomAlert
+    const [alert, setAlert] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'success',
+        buttons: []
+    });
 
     // Charger les demandes d'emprunt de l'utilisateur
     const fetchBorrowRequests = async () => {
@@ -15,7 +25,7 @@ const StatusBooksScreen = ({ navigation }) => {
             const userId = await AsyncStorage.getItem('userId');
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.11.119:5000/api/borrows/user/${userId}`, {
+            const response = await fetch(`http://192.168.1.172:5000/api/borrows/user/${userId}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -26,11 +36,52 @@ const StatusBooksScreen = ({ navigation }) => {
             }
             
             const data = await response.json();
-            setBorrowRequests(data);
+            console.log("Données reçues:", data);
+            
+            // Traiter les données pour corriger les URL d'images
+            const processedData = data.map(item => {
+                // Si image_url est présent
+                if (item.image_url) {
+                    return {
+                        ...item,
+                        imageUrl: `http://192.168.1.172:5000/${item.image_url.replace(/\\/g, "/")}`,
+                        pdfUrl: item.pdf_url ? `http://192.168.1.172:5000/${item.pdf_url.replace(/\\/g, "/")}` : null,
+                    };
+                } 
+                // Si imageUrl est déjà présent mais ne commence pas par http
+                else if (item.imageUrl && !item.imageUrl.startsWith('http')) {
+                    return {
+                        ...item,
+                        imageUrl: `http://192.168.1.172:5000/${item.imageUrl.replace(/\\/g, "/")}`,
+                        pdfUrl: item.pdfUrl && !item.pdfUrl.startsWith('http') ? 
+                               `http://192.168.1.172:5000/${item.pdfUrl.replace(/\\/g, "/")}` : 
+                               item.pdfUrl
+                    };
+                }
+                // Si aucune image n'est disponible
+                else if (!item.imageUrl) {
+                    return {
+                        ...item,
+                        imageUrl: 'https://via.placeholder.com/150/4F6CE1/FFFFFF?text=Livre'
+                    };
+                }
+                
+                return item;
+            });
+            
+            console.log("Données traitées:", processedData);
+            setBorrowRequests(processedData);
             setIsLoading(false);
         } catch (error) {
             console.error("Erreur:", error);
-            Alert.alert('Erreur', 'Impossible de charger vos demandes d\'emprunt');
+            // Remplacer Alert.alert par CustomAlert
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: 'Impossible de charger vos demandes d\'emprunt',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setIsLoading(false);
         }
     };
@@ -53,7 +104,7 @@ const StatusBooksScreen = ({ navigation }) => {
             const userId = await AsyncStorage.getItem('userId');
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.11.119:5000/api/borrows/cancel`, {
+            const response = await fetch(`http://192.168.1.172:5000/api/borrows/cancel`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -70,12 +121,26 @@ const StatusBooksScreen = ({ navigation }) => {
                 throw new Error(errorData.message || 'Erreur lors de l\'annulation');
             }
             
-            Alert.alert('Succès', 'Demande annulée avec succès');
+            // Remplacer Alert.alert par CustomAlert
+            setAlert({
+                visible: true,
+                title: 'Succès',
+                message: 'Demande annulée avec succès',
+                type: 'success',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             // Rafraîchir la liste après annulation
             fetchBorrowRequests();
         } catch (error) {
             console.error("Erreur:", error);
-            Alert.alert('Erreur', error.message || 'Impossible d\'annuler la demande');
+            // Remplacer Alert.alert par CustomAlert
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: error.message || 'Impossible d\'annuler la demande',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setIsLoading(false);
         }
     };
@@ -87,7 +152,7 @@ const StatusBooksScreen = ({ navigation }) => {
             const userId = await AsyncStorage.getItem('userId');
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.11.119:5000/api/borrows/return`, {
+            const response = await fetch(`http://192.168.1.172:5000/api/borrows/return`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -104,18 +169,54 @@ const StatusBooksScreen = ({ navigation }) => {
                 throw new Error(errorData.message || 'Erreur lors du retour');
             }
             
-            Alert.alert('Succès', 'Livre marqué comme retourné avec succès');
+            // Remplacer Alert.alert par CustomAlert
+            setAlert({
+                visible: true,
+                title: 'Succès',
+                message: 'Livre marqué comme retourné avec succès',
+                type: 'success',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             // Rafraîchir la liste après retour
             fetchBorrowRequests();
         } catch (error) {
             console.error("Erreur:", error);
-            Alert.alert('Erreur', error.message || 'Impossible de retourner le livre');
+            // Remplacer Alert.alert par CustomAlert
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: error.message || 'Impossible de retourner le livre',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setIsLoading(false);
+        }
+    };
+
+    // Fonction pour gérer la navigation vers le visualiseur PDF
+    const handleViewBook = (item) => {
+        console.log("URL du PDF:", item.pdfUrl); // Log pour vérifier l'URL
+        if (item.pdfUrl) {
+            navigation.navigate('PDFViewerScreen', {
+                pdfUrl: item.pdfUrl,
+                bookTitle: item.title,
+                bookId: item.book_id
+            });
+        } else {
+            // Si l'URL du PDF n'est pas disponible, nous construisons l'URL avec l'endpoint correct
+            const pdfUrl = `http://192.168.1.172:5000/api/books/${item.book_id}/download-pdf`;
+            console.log("URL construite:", pdfUrl);
+            navigation.navigate('PDFViewerScreen', {
+                pdfUrl: pdfUrl,
+                bookTitle: item.title,
+                bookId: item.book_id
+            });
         }
     };
 
     // Rendre un élément de la liste des demandes
     const renderBorrowItem = ({ item }) => {
+        console.log("Rendu item:", item.title, "URL image:", item.imageUrl);
         // Définir la couleur de statut
         let statusColor;
         let statusText;
@@ -166,6 +267,9 @@ const StatusBooksScreen = ({ navigation }) => {
             });
         };
 
+        // Image par défaut
+        const defaultImage = 'https://via.placeholder.com/150/4F6CE1/FFFFFF?text=Livre';
+
         return (
             <View style={styles.borrowCard}>
                 <View style={styles.borrowHeader}>
@@ -177,9 +281,14 @@ const StatusBooksScreen = ({ navigation }) => {
                 </View>
                 
                 <View style={styles.borrowContent}>
-                    {item.imageUrl && (
-                        <Image source={{ uri: item.imageUrl }} style={styles.coverThumbnail} />
-                    )}
+                    <Image 
+                        source={{ uri: item.imageUrl || defaultImage }} 
+                        style={styles.coverThumbnail}
+                        defaultSource={{ uri: defaultImage }}
+                        onError={(e) => {
+                            console.log('Erreur de chargement d\'image:', e.nativeEvent.error);
+                        }}
+                    />
                     
                     <View style={styles.borrowInfo}>
                         <Text style={styles.authorName}>{item.author}</Text>
@@ -254,45 +363,27 @@ const StatusBooksScreen = ({ navigation }) => {
                         </TouchableOpacity>
                     )}
 
-{(item.status === 'approved' || item.status === 'borrowed') ? (
-    <TouchableOpacity
-        style={styles.viewButton}
-        onPress={() => {
-            console.log("URL du PDF:", item.pdfUrl); // Log pour vérifier l'URL
-            if (item.pdfUrl) {
-                navigation.navigate('PDFViewerScreen', {
-                    pdfUrl: item.pdfUrl,
-                    bookTitle: item.title,
-                    bookId: item.book_id
-                });
-            } else {
-                // Si l'URL du PDF n'est pas disponible, nous construisons l'URL avec l'endpoint correct
-                const pdfUrl = `http://192.168.11.119:5000/api/books/${item.book_id}/download-pdf`;
-                console.log("URL construite:", pdfUrl);
-                navigation.navigate('PDFViewerScreen', {
-                    pdfUrl: pdfUrl,
-                    bookTitle: item.title,
-                    bookId: item.book_id
-                });
-            }
-        }}
-    >
-        <LinearGradient
-            colors={['#4F6CE1', '#7D55F3']}
-            style={styles.viewButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-        >
-            <Ionicons name="document-text-outline" size={20} color="white" />
-            <Text style={styles.viewButtonText}>Voir le livre</Text>
-        </LinearGradient>
-    </TouchableOpacity>
-) : (
-    <View style={styles.viewButtonDisabled}>
-        <Ionicons name="document-text-outline" size={20} color="#A0AEC0" />
-        <Text style={styles.viewButtonTextDisabled}>Voir le livre</Text>
-    </View>
-)}
+                    {(item.status === 'approved' || item.status === 'borrowed') ? (
+                        <TouchableOpacity
+                            style={styles.viewButton}
+                            onPress={() => handleViewBook(item)}
+                        >
+                            <LinearGradient
+                                colors={['#4F6CE1', '#7D55F3']}
+                                style={styles.viewButtonGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                            >
+                                <Ionicons name="document-text-outline" size={20} color="white" />
+                                <Text style={styles.viewButtonText}>Voir le livre</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={styles.viewButtonDisabled}>
+                            <Ionicons name="document-text-outline" size={20} color="#A0AEC0" />
+                            <Text style={styles.viewButtonTextDisabled}>Voir le livre</Text>
+                        </View>
+                    )}
                 </View>
             </View>
         );
@@ -358,6 +449,16 @@ const StatusBooksScreen = ({ navigation }) => {
                     onRefresh={fetchBorrowRequests}
                 />
             )}
+            
+            {/* Composant CustomAlert */}
+            <CustomAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                buttons={alert.buttons}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };
@@ -440,6 +541,8 @@ const styles = StyleSheet.create({
         height: 100,
         borderRadius: 6,
         marginRight: 12,
+        backgroundColor: '#f0f0f0',
+        resizeMode: 'cover',
     },
     borrowInfo: {
         flex: 1,
@@ -511,6 +614,23 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginLeft: 8,
     },
+    viewButtonDisabled: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#E2E8F0',
+        borderRadius: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        marginTop: 10,
+        opacity: 0.5,
+    },
+    viewButtonTextDisabled: {
+        color: '#A0AEC0',
+        fontSize: 14,
+        fontWeight: '500',
+        marginLeft: 5,
+    },
     emptyContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -545,25 +665,7 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
         marginLeft: 8,
-    },
-    // Ajoutez ces styles à votre objet styles
-viewButtonDisabled: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginTop: 10,
-    opacity: 0.5,
-},
-viewButtonTextDisabled: {
-    color: '#A0AEC0',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 5,
-},
+    }
 });
 
 export default StatusBooksScreen;

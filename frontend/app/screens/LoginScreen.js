@@ -3,7 +3,6 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   Text,
   SafeAreaView,
@@ -19,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from "@react-navigation/native";
+import CustomAlert from './CustomAlert'; // Import du composant CustomAlert
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +29,15 @@ const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  
+  // Ajout de l'état pour CustomAlert
+  const [alert, setAlert] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'success',
+    buttons: []
+  });
 
   const navigation = useNavigation();
 
@@ -65,7 +74,7 @@ const LoginScreen = () => {
 
     setIsLoading(true);
     try {
-        const res = await axios.post("http://192.168.11.119:5000/api/auth/login", {
+        const res = await axios.post("http://192.168.1.172:5000/api/auth/login", {
             email,
             password
         });
@@ -93,10 +102,17 @@ const LoginScreen = () => {
             errorMessage = error.response.data.message;
         }
         
-        Alert.alert("Échec de la connexion", errorMessage);
+        // Remplacer Alert.alert par CustomAlert
+        setAlert({
+            visible: true,
+            title: "Échec de la connexion",
+            message: errorMessage,
+            type: "error",
+            buttons: [{ text: "OK", onPress: () => {} }]
+        });
         setIsLoading(false);
     }
-};
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -170,7 +186,21 @@ const LoginScreen = () => {
               {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
             </View>
 
-            <TouchableOpacity style={styles.forgotPassword}>
+            <TouchableOpacity 
+              style={styles.forgotPassword}
+              onPress={() => {
+                setAlert({
+                  visible: true,
+                  title: "Mot de passe oublié",
+                  message: "Un email de réinitialisation sera envoyé à l'adresse email associée à votre compte.",
+                  type: "info",
+                  buttons: [
+                    { text: "Annuler", onPress: () => {} },
+                    { text: "Envoyer", onPress: () => {} }
+                  ]
+                });
+              }}
+            >
               <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
 
@@ -225,6 +255,16 @@ const LoginScreen = () => {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+      
+      {/* Composant CustomAlert */}
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        buttons={alert.buttons}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 };

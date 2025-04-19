@@ -4,7 +4,8 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const authRoutes = require("./routes/auth");
 const bookRoutes = require("./routes/books");
-const browsbookRoutes = require("./routes/borrows");
+const borrowBookRoutes = require("./routes/borrows");
+const forgotPasswordRoutes = require("./routes/forgotPassword"); // Nouvelle route
 const path = require("path");
 const app = express();
 
@@ -17,8 +18,10 @@ app.use(bodyParser.json());
 
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/books", bookRoutes); // Assurez-vous que ce chemin est correct
-app.use("/api/borrows", browsbookRoutes);
+app.use("/api/books", bookRoutes);
+app.use("/api/borrows", borrowBookRoutes);
+app.use("/api/password", forgotPasswordRoutes); // Nouvelle route
+
 // Démarrer le serveur
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

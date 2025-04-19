@@ -6,7 +6,6 @@ import {
     FlatList,
     Image,
     TouchableOpacity,
-    Alert,
     RefreshControl,
     ActivityIndicator,
     StatusBar,
@@ -15,6 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import CustomAlert from './CustomAlert'; // Import du composant CustomAlert
 
 const HomeScreen = ({ navigation }) => {
     const [books, setBooks] = useState([]);
@@ -22,6 +22,15 @@ const HomeScreen = ({ navigation }) => {
     const [searchText, setSearchText] = useState('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    
+    // Ajout de l'état pour CustomAlert
+    const [alert, setAlert] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'success',
+        buttons: []
+    });
 
     const fetchBooks = async () => {
         try {
@@ -31,7 +40,7 @@ const HomeScreen = ({ navigation }) => {
                 return;
             }
             
-            const response = await fetch('http://192.168.11.119:5000/api/books', {
+            const response = await fetch('http://192.168.1.172:5000/api/books', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -46,7 +55,14 @@ const HomeScreen = ({ navigation }) => {
             setFilteredBooks(data);
         } catch (error) {
             console.error('Erreur:', error);
-            Alert.alert('Erreur', 'Impossible de charger les livres');
+            // Remplacer Alert.alert par CustomAlert
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: 'Impossible de charger les livres',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -78,13 +94,16 @@ const HomeScreen = ({ navigation }) => {
     };
 
     const handleLogout = async () => {
-        Alert.alert(
-            'Déconnexion',
-            'Êtes-vous sûr de vouloir vous déconnecter ?',
-            [
+        // Remplacer Alert.alert par CustomAlert
+        setAlert({
+            visible: true,
+            title: 'Déconnexion',
+            message: 'Êtes-vous sûr de vouloir vous déconnecter ?',
+            type: 'warning',
+            buttons: [
                 {
                     text: 'Annuler',
-                    style: 'cancel',
+                    onPress: () => {},
                 },
                 {
                     text: 'Déconnecter',
@@ -93,13 +112,18 @@ const HomeScreen = ({ navigation }) => {
                             await AsyncStorage.removeItem('token');
                             navigation.replace('Login');
                         } catch (error) {
-                            Alert.alert('Erreur', 'Problème lors de la déconnexion');
+                            setAlert({
+                                visible: true,
+                                title: 'Erreur',
+                                message: 'Problème lors de la déconnexion',
+                                type: 'error',
+                                buttons: [{ text: 'OK', onPress: () => {} }]
+                            });
                         }
                     },
                 },
-            ],
-            { cancelable: true }
-        );
+            ]
+        });
     };
 
     const renderBookItem = ({ item }) => (
@@ -110,7 +134,7 @@ const HomeScreen = ({ navigation }) => {
         >
             <View style={styles.imageContainer}>
                 <Image
-                    source={{ uri: item.image_url ? `http://192.168.11.119:5000/${item.image_url}` : 'https://via.placeholder.com/150' }}
+                    source={{ uri: item.image_url ? `http://192.168.1.172:5000/${item.image_url}` : 'https://via.placeholder.com/150' }}
                     style={styles.bookImage}
                     resizeMode="cover"
                 />
@@ -229,6 +253,16 @@ const HomeScreen = ({ navigation }) => {
                     <Ionicons name="add" size={30} color="white" />
                 </LinearGradient>
             </TouchableOpacity>
+            
+            {/* Composant CustomAlert */}
+            <CustomAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                buttons={alert.buttons}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };

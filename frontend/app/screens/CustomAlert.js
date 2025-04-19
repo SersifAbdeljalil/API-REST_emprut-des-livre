@@ -9,6 +9,7 @@ import {
     Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const CustomAlert = ({ visible, title, message, type = 'success', buttons = [], onClose }) => {
     const slideAnim = new Animated.Value(0);
@@ -44,28 +45,38 @@ const CustomAlert = ({ visible, title, message, type = 'success', buttons = [], 
         }
     }, [visible]);
 
-    // Determine icon and colors based on alert type
-    let iconName, backgroundColor, iconColor;
+    // Determine icon, colors, and gradients based on alert type
+    let iconName, gradientColors, iconColor, iconBgColor;
     switch (type) {
         case 'success':
             iconName = 'checkmark-circle';
-            backgroundColor = '#10B981';
+            gradientColors = ['#38A169', '#10B981'];
             iconColor = '#ECFDF5';
+            iconBgColor = 'rgba(16, 185, 129, 0.15)';
             break;
         case 'error':
             iconName = 'close-circle';
-            backgroundColor = '#EF4444';
+            gradientColors = ['#E53E3E', '#EF4444'];
             iconColor = '#FEF2F2';
+            iconBgColor = 'rgba(239, 68, 68, 0.15)';
             break;
         case 'warning':
             iconName = 'warning';
-            backgroundColor = '#F59E0B';
+            gradientColors = ['#ED8936', '#F59E0B'];
             iconColor = '#FFFBEB';
+            iconBgColor = 'rgba(245, 158, 11, 0.15)';
+            break;
+        case 'info':
+            iconName = 'information-circle';
+            gradientColors = ['#4F6CE1', '#7D55F3'];
+            iconColor = '#EFF6FF';
+            iconBgColor = 'rgba(79, 108, 225, 0.15)';
             break;
         default:
-            iconName = 'information-circle';
-            backgroundColor = '#3B82F6';
+            iconName = 'book';
+            gradientColors = ['#4F6CE1', '#7D55F3'];
             iconColor = '#EFF6FF';
+            iconBgColor = 'rgba(79, 108, 225, 0.15)';
     }
 
     const slideInterpolate = slideAnim.interpolate({
@@ -102,8 +113,10 @@ const CustomAlert = ({ visible, title, message, type = 'success', buttons = [], 
                         }
                     ]}
                 >
-                    <View style={[styles.iconContainer, { backgroundColor }]}>
-                        <Ionicons name={iconName} size={30} color={iconColor} />
+                    <View style={[styles.iconBackground, { backgroundColor: iconBgColor }]}>
+                        <View style={styles.iconContainer}>
+                            <Ionicons name={iconName} size={40} color={gradientColors[0]} />
+                        </View>
                     </View>
 
                     <Text style={styles.modalTitle}>{title}</Text>
@@ -116,7 +129,6 @@ const CustomAlert = ({ visible, title, message, type = 'success', buttons = [], 
                                     key={index}
                                     style={[
                                         styles.button,
-                                        index === 0 ? { backgroundColor } : styles.secondaryButton,
                                         index > 0 && { marginTop: 10 }
                                     ]}
                                     onPress={() => {
@@ -124,22 +136,35 @@ const CustomAlert = ({ visible, title, message, type = 'success', buttons = [], 
                                         onClose();
                                     }}
                                 >
-                                    <Text
-                                        style={[
-                                            styles.buttonText,
-                                            index !== 0 && styles.secondaryButtonText
-                                        ]}
-                                    >
-                                        {button.text}
-                                    </Text>
+                                    {index === 0 ? (
+                                        <LinearGradient
+                                            colors={gradientColors}
+                                            style={styles.buttonGradient}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                        >
+                                            <Text style={styles.buttonText}>{button.text}</Text>
+                                        </LinearGradient>
+                                    ) : (
+                                        <View style={styles.secondaryButton}>
+                                            <Text style={styles.secondaryButtonText}>{button.text}</Text>
+                                        </View>
+                                    )}
                                 </TouchableOpacity>
                             ))
                         ) : (
                             <TouchableOpacity
-                                style={[styles.button, { backgroundColor }]}
+                                style={styles.button}
                                 onPress={onClose}
                             >
-                                <Text style={styles.buttonText}>OK</Text>
+                                <LinearGradient
+                                    colors={gradientColors}
+                                    style={styles.buttonGradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                >
+                                    <Text style={styles.buttonText}>OK</Text>
+                                </LinearGradient>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -161,52 +186,72 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: 'rgba(30, 41, 59, 0.6)',
     },
     modalView: {
         width: '85%',
         backgroundColor: 'white',
-        borderRadius: 15,
+        borderRadius: 20,
         padding: 25,
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 2
+            height: 4
         },
         shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
+        shadowRadius: 8,
+        elevation: 10,
     },
-    iconContainer: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+    iconBackground: {
+        width: 90,
+        height: 90,
+        borderRadius: 45,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 15,
+        marginBottom: 20,
+    },
+    iconContainer: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     modalTitle: {
-        marginBottom: 10,
+        marginBottom: 12,
         textAlign: 'center',
-        fontSize: 18,
+        fontSize: 22,
         fontWeight: 'bold',
-        color: '#1F2937',
+        color: '#1E293B',
     },
     modalMessage: {
-        marginBottom: 20,
+        marginBottom: 24,
         textAlign: 'center',
-        fontSize: 15,
-        color: '#4B5563',
-        lineHeight: 22,
+        fontSize: 16,
+        color: '#64748B',
+        lineHeight: 24,
+        paddingHorizontal: 10,
     },
     buttonContainer: {
         width: '100%',
     },
     button: {
-        borderRadius: 10,
-        padding: 12,
+        borderRadius: 12,
+        overflow: 'hidden',
         elevation: 2,
+    },
+    buttonGradient: {
+        padding: 14,
         alignItems: 'center',
     },
     buttonText: {
@@ -215,12 +260,17 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     secondaryButton: {
-        backgroundColor: '#F3F4F6',
+        backgroundColor: '#F8FAFC',
         borderWidth: 1,
-        borderColor: '#E5E7EB',
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        padding: 14,
+        alignItems: 'center',
     },
     secondaryButtonText: {
-        color: '#4B5563',
+        color: '#64748B',
+        fontWeight: '600',
+        fontSize: 16,
     }
 });
 

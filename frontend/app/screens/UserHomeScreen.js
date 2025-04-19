@@ -6,22 +6,30 @@ import {
     FlatList,
     Image,
     TouchableOpacity,
-    Alert,
-    RefreshControl,
     ActivityIndicator,
     StatusBar,
-    TextInput
+    TextInput,
+    Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import CustomAlert from './CustomAlert'; // Importez le composant CustomAlert
 
 const UserHomeScreen = ({ navigation }) => {
     const [books, setBooks] = useState([]);
     const [filteredBooks, setFilteredBooks] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    
+    // Ajout de l'état pour CustomAlert
+    const [alert, setAlert] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'success',
+        buttons: []
+    });
 
     const fetchBooks = async () => {
         try {
@@ -31,7 +39,7 @@ const UserHomeScreen = ({ navigation }) => {
                 return;
             }
             
-            const response = await fetch('http://192.168.11.119:5000/api/books', {
+            const response = await fetch('http://192.168.1.172:5000/api/books', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -42,14 +50,30 @@ const UserHomeScreen = ({ navigation }) => {
             }
             
             const data = await response.json();
-            setBooks(data);
-            setFilteredBooks(data);
+            console.log('Livres récupérés:', data);
+
+            // Transformer les URLs d'image
+            const booksWithImages = data.map(book => ({
+                ...book,
+                imageUrl: book.image_url 
+                    ? `http://192.168.1.172:5000/${book.image_url.replace(/\\/g, "/")}`
+                    : 'https://via.placeholder.com/150'
+            }));
+
+            setBooks(booksWithImages);
+            setFilteredBooks(booksWithImages);
         } catch (error) {
             console.error('Erreur:', error);
-            Alert.alert('Erreur', 'Impossible de charger les livres');
+            // Utilisation de CustomAlert au lieu de Alert.alert
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: 'Impossible de charger les livres',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
         } finally {
             setLoading(false);
-            setRefreshing(false);
         }
     };
 
@@ -75,31 +99,6 @@ const UserHomeScreen = ({ navigation }) => {
         }
     }, [searchQuery, books]);
 
-    const handleLogout = async () => {
-        Alert.alert(
-            'Déconnexion',
-            'Êtes-vous sûr de vouloir vous déconnecter ?',
-            [
-                {
-                    text: 'Annuler',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Déconnecter',
-                    onPress: async () => {
-                        try {
-                            await AsyncStorage.removeItem('token');
-                            navigation.replace('Login');
-                        } catch (error) {
-                            Alert.alert('Erreur', 'Problème lors de la déconnexion');
-                        }
-                    },
-                },
-            ],
-            { cancelable: true }
-        );
-    };
-
     const renderBookItem = ({ item }) => (
         <TouchableOpacity 
             style={styles.bookCard}
@@ -108,7 +107,7 @@ const UserHomeScreen = ({ navigation }) => {
         >
             <View style={styles.imageContainer}>
                 <Image
-                    source={{ uri: item.image_url ? `http://192.168.11.119:5000/${item.image_url}` : 'https://via.placeholder.com/150' }}
+                    source={{ uri: item.imageUrl }}
                     style={styles.bookImage}
                     resizeMode="cover"
                 />
@@ -142,11 +141,11 @@ const UserHomeScreen = ({ navigation }) => {
             
             {/* En-tête avec dégradé */}
             <LinearGradient
-    colors={['#3a416f', '#141727']}
-    style={styles.headerGradient}
->
-    <Text style={styles.headerTitle}>Ma Bibliothèque</Text>
-</LinearGradient>
+                colors={['#3a416f', '#141727']}
+                style={styles.headerGradient}
+            >
+                <Text style={styles.headerTitle}>Ma Bibliothèque</Text>
+            </LinearGradient>
 
             {/* Barre de recherche */}
             <View style={styles.searchContainer}>
@@ -172,17 +171,6 @@ const UserHomeScreen = ({ navigation }) => {
                     keyExtractor={item => item.id.toString()}
                     contentContainerStyle={styles.bookList}
                     numColumns={2}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={() => {
-                                setRefreshing(true);
-                                fetchBooks();
-                            }}
-                            colors={["#4F6CE1"]}
-                            tintColor="#4F6CE1"
-                        />
-                    }
                     ListEmptyComponent={() => (
                         <View style={styles.emptyContainer}>
                             {searchQuery.length > 0 ? (
@@ -211,6 +199,16 @@ const UserHomeScreen = ({ navigation }) => {
                     showsVerticalScrollIndicator={false}
                 />
             </View>
+            
+            {/* Ajout du composant CustomAlert */}
+            <CustomAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                buttons={alert.buttons}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };

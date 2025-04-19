@@ -42,7 +42,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.11.119:5000/api/borrows/admin/all`, {
+            const response = await fetch(`http://192.168.1.172:5000/api/borrows/admin/all`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -53,14 +53,23 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             }
             
             const data = await response.json();
-            setBorrowRequests(data);
+            
+            // Mise à jour pour ajouter les URL d'images correctes aux données
+            const updatedData = data.map(item => ({
+                ...item,
+                imageUrl: item.image_url 
+                    ? `http://192.168.1.172:5000/${item.image_url.replace(/\\/g, "/")}` 
+                    : 'https://via.placeholder.com/150'
+            }));
+            
+            setBorrowRequests(updatedData);
             
             // Récupérer la quantité de chaque livre référencé
             const uniqueBookIds = [...new Set(data.map(item => item.book_id))];
             const quantities = {};
             
             for (const bookId of uniqueBookIds) {
-                const bookResponse = await fetch(`http://192.168.11.119:5000/api/books/${bookId}`, {
+                const bookResponse = await fetch(`http://192.168.1.172:5000/api/books/${bookId}`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -86,6 +95,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             setIsLoading(false);
         }
     };
+    
 
     useEffect(() => {
         fetchBorrowRequests();
@@ -113,7 +123,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             filtered = filtered.filter(item => 
                 item.title.toLowerCase().includes(query) || 
                 item.author.toLowerCase().includes(query) || 
-                item.username.toLowerCase().includes(query) ||
+                item.name.toLowerCase().includes(query) ||
                 item.email.toLowerCase().includes(query)
             );
         }
@@ -129,7 +139,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.11.119:5000/api/borrows/admin/approve`, {
+            const response = await fetch(`http://192.168.1.172:5000/api/borrows/admin/approve`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -176,7 +186,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.11.119:5000/api/borrows/admin/reject`, {
+            const response = await fetch(`http://192.168.1.172:5000/api/borrows/admin/reject`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -235,7 +245,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.11.119:5000/api/borrows/admin/confirm-borrow`, {
+            const response = await fetch(`http://192.168.1.172:5000/api/borrows/admin/confirm-borrow`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -288,7 +298,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            const response = await fetch(`http://192.168.11.119:5000/api/borrows/admin/confirm-return`, {
+            const response = await fetch(`http://192.168.1.172:5000/api/borrows/admin/confirm-return`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -419,16 +429,19 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
                 </View>
                 
                 <View style={styles.borrowContent}>
-                    {item.imageUrl && (
-                        <Image source={{ uri: item.imageUrl }} style={styles.coverThumbnail} />
-                    )}
+                    <Image 
+                        source={{ uri: item.imageUrl }}
+                        style={styles.coverThumbnail}
+                       
+                        onError={({ nativeEvent: { error } }) => console.log('Erreur de chargement image:', error)}
+                    />
                     
                     <View style={styles.borrowInfo}>
                         <Text style={styles.authorName}>{item.author}</Text>
                         
                         <View style={styles.userInfoBox}>
                             <Ionicons name="person-outline" size={16} color="#4B5563" />
-                            <Text style={styles.userInfoText}>{item.username}</Text>
+                            <Text style={styles.userInfoText}>{item.name}</Text>
                         </View>
                         
                         <View style={styles.userInfoBox}>
@@ -495,6 +508,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             </View>
         );
     };
+    
     const renderFilterButtons = () => {
         const filters = [
             { id: 'all', label: 'Tous', icon: 'list-outline' },
@@ -503,7 +517,6 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             { id: 'borrowed', label: 'Empruntés', icon: 'book-outline' },
             { id: 'returned', label: 'Retournés', icon: 'return-down-back-outline' }
         ];
-        
         return (
             <ScrollView
                 horizontal
@@ -538,6 +551,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
             </ScrollView>
         );
     };
+    
     if (isLoading) {
         return (
             <View style={styles.loadingContainer}>
@@ -633,7 +647,7 @@ const AdminBorrowManagementScreen = ({ navigation }) => {
                             <View style={styles.modalContent}>
                                 <Text style={styles.modalBookTitle}>{selectedBorrow.title}</Text>
                                 <Text style={styles.modalUserInfo}>
-                                    Demandé par: {selectedBorrow.username} ({selectedBorrow.email})
+                                    Demandé par: {selectedBorrow.name} ({selectedBorrow.email})
                                 </Text>
                                 
                                 {/* Afficher la quantité disponible */}
@@ -1089,7 +1103,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     filterScrollView: {
-        flexGrow: 0, // Empêche le ScrollView de prendre tout l'espace
+        flexGrow: 0,
     },
     filterButton: {
         flexDirection: 'row',
@@ -1103,12 +1117,14 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 2,
         elevation: 1,
-        minWidth: 100, // Largeur minimale
+        width: 140, // Largeur fixe
+        justifyContent: 'center', // Centrer le contenu
     },
     filterButtonText: {
-        fontSize: 14,
+        fontSize: 13, // Réduire légèrement la taille de police
         marginLeft: 5,
         color: '#4B5563',
+        textAlign: 'center', // Centrer le texte
     },
     filterButtonActive: {
         backgroundColor: '#4F6CE1',

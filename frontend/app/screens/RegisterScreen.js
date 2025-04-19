@@ -3,7 +3,6 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   Text,
   SafeAreaView,
@@ -19,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from "@react-navigation/native";
+import CustomAlert from './CustomAlert'; // Import du composant CustomAlert
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +31,15 @@ const RegisterScreen = () => {
   const [nameError, setNameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  
+  // Ajout de l'état pour CustomAlert
+  const [alert, setAlert] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'success',
+    buttons: []
+  });
 
   const navigation = useNavigation();
 
@@ -77,17 +86,23 @@ const RegisterScreen = () => {
 
     setIsLoading(true);
     try {
-      await axios.post("http://192.168.11.119:5000/api/auth/register", {
+      await axios.post("http://192.168.1.172:5000/api/auth/register", {
         name,
         email,
         password
       });
       
-      Alert.alert(
-        "Inscription réussie", 
-        "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
-        [{ text: "OK", onPress: () => navigation.navigate("Login") }]
-      );
+      // Remplacer Alert.alert par CustomAlert
+      setAlert({
+        visible: true,
+        title: "Inscription réussie",
+        message: "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
+        type: "success",
+        buttons: [{ 
+          text: "OK", 
+          onPress: () => navigation.navigate("Login") 
+        }]
+      });
     } catch (error) {
       console.error("Erreur d'inscription:", error);
       
@@ -100,7 +115,14 @@ const RegisterScreen = () => {
         }
       }
       
-      Alert.alert("Échec de l'inscription", errorMessage);
+      // Remplacer Alert.alert par CustomAlert
+      setAlert({
+        visible: true,
+        title: "Échec de l'inscription",
+        message: errorMessage,
+        type: "error",
+        buttons: [{ text: "OK", onPress: () => {} }]
+      });
     } finally {
       setIsLoading(false);
     }
@@ -247,6 +269,16 @@ const RegisterScreen = () => {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+      
+      {/* Ajout du composant CustomAlert */}
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        buttons={alert.buttons}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 };

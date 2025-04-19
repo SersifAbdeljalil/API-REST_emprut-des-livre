@@ -5,105 +5,174 @@ import {
     Image,
     StyleSheet,
     TouchableOpacity,
-    Alert,
-    ScrollView,
     StatusBar,
-    ActivityIndicator
+    ActivityIndicator,
+    ScrollView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import CustomAlert from './CustomAlert'; // Assurez-vous que le chemin est correct
 
 const BookDetailsScreen = ({ route, navigation }) => {
     const { bookId } = route.params;
     const [book, setBook] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // État pour CustomAlert
+    const [alert, setAlert] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'success',
+        buttons: []
+    });
+
     // Charger les détails du livre
     useEffect(() => {
         const fetchBookDetails = async () => {
             try {
                 setIsLoading(true);
-                const response = await fetch(`http://192.168.11.119:5000/api/books/${bookId}`, {
+                const token = await AsyncStorage.getItem('token');
+                const response = await fetch(`http://192.168.1.172:5000/api/books/${bookId}`, {
                     headers: {
-                        Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
+                        Authorization: `Bearer ${token}`,
                     },
                 });
+                
+                if (!response.ok) {
+                    throw new Error('Impossible de charger les détails du livre');
+                }
+                
                 const data = await response.json();
-                console.log("Réponse de l'API :", data); // Ajoutez ce log
+                console.log("Réponse de l'API :", data);
+                
                 const updatedBook = {
                     ...data,
-                    imageUrl: `http://192.168.11.119:5000/${data.image_url.replace("\\", "/")}`,
-                    pdfUrl: `http://192.168.11.119:5000/${data.pdf_url.replace("\\", "/")}`,
+                    imageUrl: `http://192.168.1.172:5000/${data.image_url.replace("\\", "/")}`,
+                    pdfUrl: data.pdf_url ? `http://192.168.1.172:5000/${data.pdf_url.replace("\\", "/")}` : null,
                 };
+                
                 setBook(updatedBook);
                 setIsLoading(false);
             } catch (error) {
-                Alert.alert('Erreur', 'Impossible de charger les détails du livre');
+                setAlert({
+                    visible: true,
+                    title: 'Erreur',
+                    message: 'Impossible de charger les détails du livre',
+                    type: 'error',
+                    buttons: [{ 
+                        text: 'OK', 
+                        onPress: () => navigation.goBack() 
+                    }]
+                });
                 setIsLoading(false);
             }
         };
+        
         fetchBookDetails();
-    }, [bookId]);
+    }, [bookId, navigation]);
 
     const handleDelete = async () => {
-        Alert.alert(
-            'Confirmation',
-            'Êtes-vous sûr de vouloir supprimer ce livre ?',
-            [
-                {
-                    text: 'Annuler',
-                    style: 'cancel',
+        setAlert({
+            visible: true,
+            title: 'Confirmation',
+            message: 'Êtes-vous sûr de vouloir supprimer ce livre ?',
+            type: 'warning',
+            buttons: [
+                { 
+                    text: 'Annuler', 
+                    onPress: () => {} 
                 },
-                {
-                    text: 'Supprimer',
+                { 
+                    text: 'Supprimer', 
                     onPress: async () => {
                         try {
                             setIsLoading(true);
-                            const response = await fetch(`http://192.168.1.4:5000/api/books/${bookId}`, {
+                            const token = await AsyncStorage.getItem('token');
+                            const response = await fetch(`http://192.168.1.172:5000/api/books/${bookId}`, {
                                 method: 'DELETE',
                                 headers: {
-                                    Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
+                                    Authorization: `Bearer ${token}`,
                                 },
                             });
+                            
                             if (response.ok) {
-                                Alert.alert('Succès', 'Livre supprimé avec succès');
-                                navigation.goBack();
+                                setAlert({
+                                    visible: true,
+                                    title: 'Succès',
+                                    message: 'Livre supprimé avec succès',
+                                    type: 'success',
+                                    buttons: [{ 
+                                        text: 'OK', 
+                                        onPress: () => navigation.goBack() 
+                                    }]
+                                });
                             } else {
-                                Alert.alert('Erreur', 'Impossible de supprimer le livre');
+                                setAlert({
+                                    visible: true,
+                                    title: 'Erreur',
+                                    message: 'Impossible de supprimer le livre',
+                                    type: 'error',
+                                    buttons: [{ text: 'OK', onPress: () => {} }]
+                                });
                                 setIsLoading(false);
                             }
                         } catch (error) {
-                            Alert.alert('Erreur', 'Une erreur est survenue');
+                            setAlert({
+                                visible: true,
+                                title: 'Erreur',
+                                message: 'Une erreur est survenue',
+                                type: 'error',
+                                buttons: [{ text: 'OK', onPress: () => {} }]
+                            });
                             setIsLoading(false);
                         }
-                    },
-                    style: 'destructive',
-                },
-            ],
-            { cancelable: true }
-        );
+                    }
+                }
+            ]
+        });
     };
 
     const handleDownloadPdf = async () => {
         if (!book?.pdfUrl) {
-            Alert.alert('Erreur', "Ce livre n'a pas de PDF disponible");
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: "Ce livre n'a pas de PDF disponible",
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             return;
         }
+        
         try {
             setIsLoading(true);
             const fileUri = FileSystem.documentDirectory + book.title.replace(/\s+/g, '_') + '.pdf';
             const { uri } = await FileSystem.downloadAsync(book.pdfUrl, fileUri);
             setIsLoading(false);
+            
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(uri);
             } else {
-                Alert.alert('Succès', 'PDF téléchargé', [{ text: 'OK' }]);
+                setAlert({
+                    visible: true,
+                    title: 'Succès',
+                    message: 'PDF téléchargé',
+                    type: 'success',
+                    buttons: [{ text: 'OK', onPress: () => {} }]
+                });
             }
         } catch (error) {
-            Alert.alert('Erreur', 'Impossible de télécharger le PDF');
+            setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: 'Impossible de télécharger le PDF',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+            });
             setIsLoading(false);
         }
     };
@@ -189,11 +258,13 @@ const BookDetailsScreen = ({ route, navigation }) => {
 
                         <Text style={styles.sectionTitle}>Lieu et époque</Text>
                         <Text style={styles.descriptionText}>{book.location_era}</Text>
+                        
                         <Text style={styles.sectionTitle}>Quantité disponible</Text>
-<View style={styles.quantityContainer}>
-    <Ionicons name="list-outline" size={20} color="#666" style={styles.quantityIcon} />
-    <Text style={styles.quantityText}>{book.quantity || 1}</Text>
-</View>
+                        <View style={styles.quantityContainer}>
+                            <Ionicons name="list-outline" size={20} color="#666" style={styles.quantityIcon} />
+                            <Text style={styles.quantityText}>{book.quantity || 1}</Text>
+                        </View>
+                        
                         <View style={styles.actionsSection}>
                             <TouchableOpacity 
                                 style={styles.actionButton}
@@ -245,10 +316,19 @@ const BookDetailsScreen = ({ route, navigation }) => {
                     </View>
                 </View>
             </ScrollView>
+
+            {/* CustomAlert component */}
+            <CustomAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                buttons={alert.buttons}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };
-
 const styles = StyleSheet.create({
     mainContainer: {
         flex: 1,

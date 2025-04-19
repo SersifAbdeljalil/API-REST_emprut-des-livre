@@ -170,6 +170,7 @@ router.post("/login", (req, res) => {
 });
 
 // Récupérer les informations de l'utilisateur connecté
+// Dans la route /profile, uniformiser les noms de propriétés
 router.get("/profile", authenticateToken, (req, res) => {
   db.query(
     "SELECT id, name, email, role, profile_image, created_at FROM users WHERE id = ?",
@@ -197,7 +198,7 @@ router.get("/profile", authenticateToken, (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        profileImage: profileImage,
+        profileImage: profileImage, // Uniformiser en utilisant profileImage partout
         createdAt: user.created_at
       });
     }

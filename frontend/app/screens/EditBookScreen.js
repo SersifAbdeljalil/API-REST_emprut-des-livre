@@ -56,7 +56,7 @@ const EditBookScreen = ({ route, navigation }) => {
                     return;
                 }
 
-                const response = await fetch(`http://192.168.11.119:5000/api/books/${bookId}`, {
+                const response = await fetch(`http://192.168.1.172:5000/api/books/${bookId}`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -137,7 +137,7 @@ const EditBookScreen = ({ route, navigation }) => {
                 return;
             }
 
-            const response = await fetch(`http://192.168.11.119:5000/api/books/${bookId}`, {
+            const response = await fetch(`http://192.168.1.172:5000/api/books/${bookId}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,

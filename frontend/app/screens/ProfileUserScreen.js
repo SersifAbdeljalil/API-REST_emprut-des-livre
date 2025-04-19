@@ -1,20 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, Image, ActivityIndicator, Platform, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import CustomAlert from './CustomAlert';
 
-const ProfileUserScreen = ({ navigation }) => {
+const ProfileUserScreen = ({ navigation, route }) => {
   const [userData, setUserData] = useState({ 
     name: "Utilisateur", 
     email: "user@example.com",
     profileImage: "https://via.placeholder.com/150"
   });
   const [loading, setLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
+  
+  // Ajout de l'état pour CustomAlert
+  const [alert, setAlert] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'success',
+    buttons: []
+  });
 
   // Fonction pour récupérer les informations de l'utilisateur
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem('token');
@@ -24,44 +35,76 @@ const ProfileUserScreen = ({ navigation }) => {
       }
       
       // Appel API pour récupérer les données utilisateur
-      const response = await fetch('http://192.168.11.119:5000/api/auth/profile', {
+      const response = await fetch('http://192.168.1.172:5000/api/auth/profile', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        // Ajouter un paramètre cache-bust pour éviter la mise en cache
+        cache: 'no-store'
       });
       
       if (response.ok) {
         const data = await response.json();
+        console.log("Données utilisateur récupérées:", data);
+        
+        // Ajouter un paramètre cache-bust à l'URL de l'image
+        let imageUrl = data.profileImage || "https://via.placeholder.com/150";
+        if (imageUrl.includes('?')) {
+          imageUrl = imageUrl + '&t=' + Date.now();
+        } else {
+          imageUrl = imageUrl + '?t=' + Date.now();
+        }
+        
         setUserData({
           name: data.name,
           email: data.email,
-          profileImage: data.profileImage || "https://via.placeholder.com/150"
+          profileImage: imageUrl
         });
+        
+        setDebugInfo(`Profil chargé - Image: ${imageUrl}`);
       } else {
-        // Gérer les erreurs
-        console.error('Erreur lors de la récupération du profil');
+        console.error("Erreur de réponse:", await response.text());
+        setAlert({
+          visible: true,
+          title: 'Erreur',
+          message: 'Erreur lors de la récupération du profil',
+          type: 'error',
+          buttons: [{ text: 'OK', onPress: () => {} }]
+        });
       }
     } catch (error) {
       console.error('Erreur:', error);
+      setAlert({
+        visible: true,
+        title: 'Erreur',
+        message: 'Problème lors de la récupération du profil',
+        type: 'error',
+        buttons: [{ text: 'OK', onPress: () => {} }]
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigation]);
 
+  // UseEffect avec dépendance sur route.params pour détecter les changements de navigation
   useEffect(() => {
+    console.log("ProfileUserScreen - useEffect déclenché", route.params);
     fetchUserData();
-  }, []);
+  }, [fetchUserData, route.params]);
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Déconnexion',
-      'Êtes-vous sûr de vouloir vous déconnecter ?',
-      [
+    // Utilisation de CustomAlert au lieu de Alert.alert
+    setAlert({
+      visible: true,
+      title: 'Déconnexion',
+      message: 'Êtes-vous sûr de vouloir vous déconnecter ?',
+      type: 'warning',
+      buttons: [
         {
           text: 'Annuler',
-          style: 'cancel',
+          onPress: () => {}
         },
         {
           text: 'Déconnecter',
@@ -70,21 +113,33 @@ const ProfileUserScreen = ({ navigation }) => {
               await AsyncStorage.removeItem('token');
               navigation.navigate('Login');
             } catch (error) {
-              Alert.alert('Erreur', 'Problème lors de la déconnexion');
+              setAlert({
+                visible: true,
+                title: 'Erreur',
+                message: 'Problème lors de la déconnexion',
+                type: 'error',
+                buttons: [{ text: 'OK', onPress: () => {} }]
+              });
             }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+          }
+        }
+      ]
+    });
   };
 
+  // Fonction corrigée pour la mise à jour de l'image de profil
   const handleChangeProfileImage = async () => {
     try {
       // Demander la permission d'accéder à la galerie
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert("Permission refusée", "Nous avons besoin de la permission d'accéder à vos photos");
+        setAlert({
+          visible: true,
+          title: "Permission refusée",
+          message: "Nous avons besoin de la permission d'accéder à vos photos",
+          type: 'error',
+          buttons: [{ text: 'OK', onPress: () => {} }]
+        });
         return;
       }
 
@@ -96,46 +151,203 @@ const ProfileUserScreen = ({ navigation }) => {
         quality: 0.5,
       });
 
+      // Si l'utilisateur a sélectionné une image
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // Ici, vous devriez normalement téléverser l'image sur un serveur et obtenir une URL en retour
-        // Pour cet exemple, nous allons simplement simuler une mise à jour avec l'URI local
-        
         setLoading(true);
+        const imageUri = result.assets[0].uri;
+        console.log("Image URI sélectionnée:", imageUri);
+        
         const token = await AsyncStorage.getItem('token');
-        
-        // Dans une application réelle, vous devriez télécharger l'image sur un service comme AWS S3
-        // et obtenir une URL publique en retour. Pour l'exemple, nous simulerons cela.
-        
-        // Simulons une mise à jour de l'image de profil
-        const imageUrl = result.assets[0].uri;
-        
-        // Appel API pour mettre à jour l'image de profil
-        const response = await fetch('http://192.168.11.119:5000/api/auth/users/profile/image', {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ imageUrl })
-        });
-        
-        if (response.ok) {
-          setUserData(prev => ({...prev, profileImage: imageUrl}));
-          Alert.alert("Succès", "Image de profil mise à jour avec succès");
-        } else {
-          Alert.alert("Erreur", "Impossible de mettre à jour l'image de profil");
+        if (!token) {
+          setLoading(false);
+          setAlert({
+            visible: true,
+            title: "Erreur",
+            message: "Session expirée, veuillez vous reconnecter",
+            type: 'error',
+            buttons: [{ text: 'OK', onPress: () => {} }]
+          });
+          return;
         }
-        setLoading(false);
+
+        // On utilise directement une URL aléatoire pour tester
+        const randomImageUrl = "https://randomuser.me/api/portraits/men/" + Math.floor(Math.random() * 99) + ".jpg";
+        setDebugInfo(`Essai avec l'image: ${randomImageUrl}`);
+        
+        try {
+          const response = await fetch('http://192.168.1.172:5000/api/auth/profile/image-url', {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ imageUrl: randomImageUrl })
+          });
+          
+          const responseText = await response.text();
+          setDebugInfo(prev => prev + `\nRéponse serveur: ${responseText}`);
+          
+          let data;
+          try {
+            data = JSON.parse(responseText);
+          } catch (e) {
+            console.error("Erreur parsing JSON:", e);
+            setDebugInfo(prev => prev + `\nErreur JSON: ${e.message}`);
+          }
+          
+          if (response.ok && data) {
+            console.log("Mise à jour réussie:", data);
+            setDebugInfo(prev => prev + `\nMise à jour OK: ${data.profileImage}`);
+            
+            // Mettre à jour l'UI immédiatement
+            setUserData(prev => ({
+              ...prev, 
+              profileImage: data.profileImage || randomImageUrl
+            }));
+            
+            setAlert({
+              visible: true,
+              title: "Succès",
+              message: "Image de profil mise à jour avec succès",
+              type: 'success',
+              buttons: [{ 
+                text: 'OK', 
+                onPress: () => {
+                  // Rafraîchir pour être sûr
+                  setTimeout(() => fetchUserData(), 500);
+                }
+              }]
+            });
+          } else {
+            console.error("Échec de la mise à jour:", data);
+            setDebugInfo(prev => prev + `\nÉchec mise à jour: ${JSON.stringify(data)}`);
+            setAlert({
+              visible: true,
+              title: "Erreur",
+              message: "Impossible de mettre à jour l'image de profil",
+              type: 'error',
+              buttons: [{ text: 'OK', onPress: () => {} }]
+            });
+          }
+        } catch (error) {
+          console.error("Erreur:", error);
+          setDebugInfo(prev => prev + `\nException: ${error.message}`);
+          setAlert({
+            visible: true,
+            title: "Erreur",
+            message: "Problème lors de la mise à jour de l'image",
+            type: 'error',
+            buttons: [{ text: 'OK', onPress: () => {} }]
+          });
+        } finally {
+          setLoading(false);
+        }
       }
     } catch (error) {
       console.error("Erreur lors du changement d'image:", error);
       setLoading(false);
-      Alert.alert("Erreur", "Un problème est survenu lors du changement d'image");
+      setDebugInfo(prev => prev + `\nErreur principale: ${error.message}`);
+      setAlert({
+        visible: true,
+        title: "Erreur",
+        message: "Un problème est survenu lors du changement d'image",
+        type: 'error',
+        buttons: [{ text: 'OK', onPress: () => {} }]
+      });
+    }
+  };
+
+  // Fonction de test direct avec une URL fixe pour déboguer
+  const testDirectImageUpdate = async () => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        setDebugInfo("Aucun token trouvé");
+        return;
+      }
+      
+      // Utiliser une URL simple et fixe pour tester
+      const testImageUrl = "https://randomuser.me/api/portraits/women/" + Math.floor(Math.random() * 99) + ".jpg";
+      setDebugInfo(`Test avec URL: ${testImageUrl}`);
+      
+      const response = await fetch('http://192.168.1.172:5000/api/auth/profile/image-url', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ imageUrl: testImageUrl })
+      });
+      
+      const responseStatus = response.status;
+      setDebugInfo(prev => prev + `\nStatut: ${responseStatus}`);
+      
+      const responseText = await response.text();
+      setDebugInfo(prev => prev + `\nRéponse: ${responseText}`);
+      
+      try {
+        const data = JSON.parse(responseText);
+        setDebugInfo(prev => prev + `\nImage retournée: ${data.profileImage || 'non définie'}`);
+        
+        if (response.ok) {
+          // Mettre à jour l'UI immédiatement
+          setUserData(prev => ({
+            ...prev, 
+            profileImage: data.profileImage || testImageUrl
+          }));
+          
+          // Forcer un rechargement après un court délai
+          setTimeout(() => fetchUserData(), 1000);
+        }
+      } catch (e) {
+        setDebugInfo(prev => prev + `\nErreur parsing: ${e.message}`);
+      }
+    } catch (error) {
+      console.error("Erreur de test:", error);
+      setDebugInfo(prev => prev + `\nException: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fonction pour vérifier l'état actuel de l'image dans la base de données
+  const checkCurrentImage = async () => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        setDebugInfo("Aucun token trouvé");
+        return;
+      }
+      
+      // Récupérer directement le profil
+      const response = await fetch('http://192.168.1.172:5000/api/auth/profile', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setDebugInfo(`Image actuelle: ${data.profileImage}`);
+      } else {
+        setDebugInfo(`Erreur vérification: ${response.status}`);
+      }
+    } catch (error) {
+      setDebugInfo(`Exception vérification: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.mainContainer}>
+    <ScrollView style={styles.mainContainer}>
       <StatusBar barStyle="light-content" />
       
       {/* En-tête avec dégradé */}
@@ -155,6 +367,11 @@ const ProfileUserScreen = ({ navigation }) => {
               <Image
                 source={{ uri: userData.profileImage }}
                 style={styles.avatar}
+                onError={(e) => {
+                  console.error("Erreur chargement image:", e.nativeEvent.error);
+                  setDebugInfo(prev => prev + `\nErreur image: ${e.nativeEvent.error}`);
+                }}
+                onLoad={() => console.log("Image chargée:", userData.profileImage)}
               />
               <TouchableOpacity 
                 style={styles.avatarEditButton}
@@ -167,10 +384,44 @@ const ProfileUserScreen = ({ navigation }) => {
             <Text style={styles.userName}>{userData.name}</Text>
             <Text style={styles.userEmail}>{userData.email}</Text>
 
+            {/* Boutons de débogage */}
+            <View style={styles.debugButtonsContainer}>
+              <TouchableOpacity
+                style={styles.debugButton}
+                onPress={testDirectImageUpdate}
+              >
+                <Text style={styles.debugButtonText}>TEST URL</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.debugButton, {backgroundColor: '#2E86C1'}]}
+                onPress={checkCurrentImage}
+              >
+                <Text style={styles.debugButtonText}>VÉRIFIER</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.debugButton, {backgroundColor: '#27AE60'}]}
+                onPress={fetchUserData}
+              >
+                <Text style={styles.debugButtonText}>RAFRAÎCHIR</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {/* Zone d'information de débogage */}
+            {debugInfo ? (
+              <View style={styles.debugInfoContainer}>
+                <Text style={styles.debugInfoTitle}>Infos de débogage:</Text>
+                <Text style={styles.debugInfoText}>{debugInfo}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.menuContainer}>
               <TouchableOpacity 
                 style={styles.menuItem} 
-                onPress={() => navigation.navigate('EditProfile')}
+                onPress={() => navigation.navigate('EditProfile', { 
+                  onGoBack: () => fetchUserData() 
+                })}
               >
                 <Ionicons name="person-outline" size={24} color="#4F6CE1" />
                 <Text style={styles.menuItemText}>Modifier mon profil</Text>
@@ -204,7 +455,17 @@ const ProfileUserScreen = ({ navigation }) => {
           </>
         )}
       </View>
-    </View>
+
+      {/* Composant CustomAlert */}
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        buttons={alert.buttons}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+      />
+    </ScrollView>
   );
 };
 
@@ -224,7 +485,6 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   profileContainer: {
-    flex: 1,
     alignItems: 'center',
     padding: 20,
   },
@@ -265,7 +525,7 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 16,
     color: '#4A5568',
-    marginBottom: 30,
+    marginBottom: 15,
   },
   menuContainer: {
     width: '100%',
@@ -277,6 +537,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
+    marginTop: 15,
   },
   menuItem: {
     flexDirection: 'row',
@@ -291,6 +552,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2D3748',
   },
+  // Styles pour les fonctionnalités de débogage
+  debugButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 10,
+  },
+  debugButton: {
+    backgroundColor: '#E74C3C',
+    padding: 10,
+    borderRadius: 5,
+    flex: 1,
+    marginHorizontal: 5,
+    alignItems: 'center',
+  },
+  debugButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  debugInfoContainer: {
+    backgroundColor: '#2C3E50',
+    padding: 10,
+    borderRadius: 5,
+    width: '100%',
+    marginBottom: 15,
+  },
+  debugInfoTitle: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  debugInfoText: {
+    color: '#EEEEEE',
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  }
 });
-
 export default ProfileUserScreen;
